@@ -32,5 +32,12 @@ func main() {
     }
     println(line)
   }
+
+  // See wc.go for more examples
+  wc := iosupport.NewWordCount(file)
+  wc.Perform()
+  println(wc.Chars)
+  println(wc.Words)
+  println(wc.Lines)
 }
 ```
