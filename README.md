@@ -1,4 +1,5 @@
 # iosupport
+[![Build Status](https://travis-ci.org/mdouchement/iosupport.svg?branch=master)](https://travis-ci.org/mdouchement/iosupport)
 
 It provides some io supports for GoLang.
 

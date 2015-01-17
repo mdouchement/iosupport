@@ -7,7 +7,7 @@ import(
   "github.com/mdouchement/iosupport"
 )
 
-func TestPerform(t *testing.T) {
+func TestWordCountPerform(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
@@ -35,7 +35,7 @@ func TestPerform(t *testing.T) {
   }
 }
 
-func TestWithCustomOptions(t *testing.T) {
+func TestWordCountWithCustomOptions(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)

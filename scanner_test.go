@@ -11,7 +11,7 @@ import(
 
 var data string = "The first line.\nThe second line :)\n\n"
 
-func TestScanLine(t *testing.T) {
+func TestScannerScanLine(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
@@ -27,7 +27,7 @@ func TestScanLine(t *testing.T) {
   }
 }
 
-func TestBytes(t *testing.T) {
+func TestScannerBytes(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
@@ -46,7 +46,7 @@ func TestBytes(t *testing.T) {
   }
 }
 
-func TestText(t *testing.T) {
+func TestScannerText(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
@@ -64,7 +64,7 @@ func TestText(t *testing.T) {
   }
 }
 
-func TestEachLine(t *testing.T) {
+func TestScannerEachLine(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
@@ -83,7 +83,7 @@ func TestEachLine(t *testing.T) {
   })
 }
 
-func TestEachString(t *testing.T) {
+func TestScannerEachString(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
@@ -102,7 +102,7 @@ func TestEachString(t *testing.T) {
 }
 
 // Re-read file
-func TestReset(t *testing.T) {
+func TestScannerReset(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
@@ -120,7 +120,7 @@ func TestReset(t *testing.T) {
   }
 }
 
-func TestIsLineEmpty(t *testing.T) {
+func TestScannerIsLineEmpty(t *testing.T) {
   path := generateTmpFile()
   file, err := os.Open(path)
   check(err)
