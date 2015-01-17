@@ -1,10 +1,10 @@
 package iosupport
 
-import(
-  "os"
-	"io"
+import (
 	"bufio"
 	"bytes"
+	"io"
+	"os"
 )
 
 // This Scanner provides very large file reader (also file with very long lines).
@@ -28,22 +28,22 @@ import(
 //
 // See other methods for custom usage
 
-var(
+var (
 	LF byte = '\n'
 	CR byte = '\r'
 )
 
 type Scanner struct {
-  f *os.File       // The file provided by the client.
-	r *bufio.Reader  // Buffered reader on given file.
-	token []byte     // Last token returned by split (scan).
-	err error        // Sticky error.
+	f     *os.File      // The file provided by the client.
+	r     *bufio.Reader // Buffered reader on given file.
+	token []byte        // Last token returned by split (scan).
+	err   error         // Sticky error.
 }
 
 func NewScanner(f *os.File) *Scanner {
-	return &Scanner {
-    f: f,
-    r: bufio.NewReader(f),
+	return &Scanner{
+		f: f,
+		r: bufio.NewReader(f),
 	}
 }
 
@@ -102,7 +102,7 @@ func (s *Scanner) ScanLine() bool {
 
 // EachLine iterate on each line and execute the given function
 func (s *Scanner) EachLine(fn func([]byte, error)) {
-  s.Reset()
+	s.Reset()
 	for s.ScanLine() {
 		fn(s.Bytes(), s.Err())
 	}
@@ -110,7 +110,7 @@ func (s *Scanner) EachLine(fn func([]byte, error)) {
 
 // EachLine iterate on each line as string format and execute the given function
 func (s *Scanner) EachString(fn func(string, error)) {
-  s.Reset()
+	s.Reset()
 	for s.ScanLine() {
 		fn(s.Text(), s.Err())
 	}
@@ -129,7 +129,7 @@ func (s *Scanner) IsLineEmpty() bool {
 
 // Reset seek to top of file
 func (s *Scanner) Reset() {
-  s.f.Seek(0, 0)
+	s.f.Seek(0, 0)
 }
 
 func (s *Scanner) trimEOL() {
