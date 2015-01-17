@@ -28,14 +28,13 @@ import (
 //  wc.Perform()
 
 type WordCount struct {
-	s         *Scanner          // The scanner provided by the client.
-	Opts      *WordCountOptions // Defines what is counted
-	separator string            // Words separator
-	Bytes     int               // Bytes counter
-	Chars     int               // Chars counter
-	Words     int               // Words counter
-	Lines     int               // Lines counter
-	err       error             // Sticky error.
+	s     *Scanner          // The scanner provided by the client.
+	Opts  *WordCountOptions // Defines what is counted
+	Bytes int               // Bytes counter
+	Chars int               // Chars counter
+	Words int               // Words counter
+	Lines int               // Lines counter
+	err   error             // Sticky error.
 }
 
 type WordCountOptions struct {
@@ -47,12 +46,12 @@ type WordCountOptions struct {
 
 func NewWordCount(f *os.File) *WordCount {
 	return &WordCount{
-		s:         NewScanner(f),
-		Opts:      defaultWordCounterOptions(),
-		separator: " ",
-		Chars:     0,
-		Words:     0,
-		Lines:     0,
+		s:     NewScanner(f),
+		Opts:  defaultWordCounterOptions(),
+		Bytes: 0,
+		Chars: 0,
+		Words: 0,
+		Lines: 0,
 	}
 }
 
@@ -76,11 +75,13 @@ func (wc *WordCount) Perform() error {
 		}
 
 		if wc.Opts.CountByte {
+			// +1 for EOL character
 			wc.Bytes += len(wc.s.Bytes()) + 1
-		} // +1 for EOL character
+		}
 		if wc.Opts.CountChar {
+			// +1 for EOL character
 			wc.Chars += len(wc.s.Text()) + 1
-		} // idem
+		}
 		if wc.Opts.CountWord {
 			wc.Words += CountWords(wc.s.Text())
 		}
