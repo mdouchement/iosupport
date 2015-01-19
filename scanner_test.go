@@ -10,19 +10,24 @@ import (
 )
 
 var data string = "The first line.\nThe second line :)\n\n"
+var dataCR string = "The first line.\rThe second line :)\r\r"
+var dataCRLF string = "The first line.\r\nThe second line.\r\n\r\n"
+var dataLFCR string = "The first line.\n\rThe second line.\n\r\n\r"
 
 func TestScannerScanLine(t *testing.T) {
-	path := generateTmpFile()
-	file, err := os.Open(path)
-	check(err)
-	defer file.Close()
+	for di, d := range []string{data, dataCR, dataCRLF, dataLFCR} {
+		path := generateTmpFile(d)
+		file, err := os.Open(path)
+		check(err)
+		defer file.Close()
 
-	sc := iosupport.NewScanner(file)
+		sc := iosupport.NewScanner(file)
 
-	for i, expected := range []bool{true, true, true, false} {
-		actual := sc.ScanLine()
-		if actual != expected {
-			t.Errorf("[Pass %v]: Expected '%v' but got '%v'", i+1, expected, actual)
+		for i, expected := range []bool{true, true, true, false} {
+			actual := sc.ScanLine()
+			if actual != expected {
+				t.Errorf("[Data index: %v - Line %v]: Expected '%v' but got '%v'", di, i+1, expected, actual)
+			}
 		}
 	}
 }
@@ -137,12 +142,22 @@ func TestScannerIsLineEmpty(t *testing.T) {
 	}
 }
 
-func generateTmpFile() string {
+func generateTmpFile(input ...string) string {
+	var d string
+	switch len(input) {
+	case 0:
+		d = data
+	case 1:
+		d = input[0]
+	default:
+		panic("Too many arguments")
+	}
+
 	path := "/tmp/iosupport_test.txt"
 	file, err := os.Create(path)
 	check(err)
 	defer file.Close()
-	_, err = file.WriteString(data)
+	_, err = file.WriteString(d)
 	check(err)
 	err = file.Sync()
 	check(err)

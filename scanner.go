@@ -2,7 +2,6 @@ package iosupport
 
 import (
 	"bufio"
-	"bytes"
 	"io"
 	"os"
 )
@@ -31,6 +30,7 @@ import (
 var (
 	LF byte = '\n'
 	CR byte = '\r'
+	newLines []byte = []byte{CR, LF}
 )
 
 type Scanner struct {
@@ -77,7 +77,6 @@ func (s *Scanner) Err() error {
 func (s *Scanner) ScanLine() bool {
 	// Override token value to new bytes array
 	s.token = make([]byte, 0)
-	defer s.trimEOL()
 
 	// Loop until we have a token.
 	for {
@@ -91,8 +90,10 @@ func (s *Scanner) ScanLine() bool {
 
 		switch b {
 		case LF:
+			s.clearNewLineSequence(CR)
 			return true
 		case CR:
+			s.clearNewLineSequence(LF)
 			return true
 		default:
 			s.token = append(s.token, b)
@@ -132,9 +133,18 @@ func (s *Scanner) Reset() {
 	s.f.Seek(0, 0)
 }
 
-func (s *Scanner) trimEOL() {
-	s.token = bytes.TrimLeft(s.token, string(LF))
-	s.token = bytes.TrimRight(s.token, string(LF))
-	s.token = bytes.TrimLeft(s.token, string(CR))
-	s.token = bytes.TrimRight(s.token, string(CR))
+func (s *Scanner) clearNewLineSequence(nl byte) {
+	for {
+		b, err := s.r.Peek(1)
+		if err != nil {
+			s.err = err
+			return
+		}
+
+		if b[0] == nl {
+			s.r.ReadByte()
+		} else {
+			return
+		}
+	}
 }
