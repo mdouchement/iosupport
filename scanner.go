@@ -28,8 +28,8 @@ import (
 // See other methods for custom usage
 
 var (
-	LF byte = '\n'
-	CR byte = '\r'
+	LF       byte   = '\n'
+	CR       byte   = '\r'
 	newLines []byte = []byte{CR, LF}
 )
 
