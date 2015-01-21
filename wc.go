@@ -34,7 +34,6 @@ type WordCount struct {
 	Chars int               // Chars counter
 	Words int               // Words counter
 	Lines int               // Lines counter
-	err   error             // Sticky error.
 }
 
 type WordCountOptions struct {
