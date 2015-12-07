@@ -51,6 +51,30 @@ func TestScannerBytes(t *testing.T) {
 	}
 }
 
+func TestScannerBytesKeepNewlineSequence(t *testing.T) {
+	path := generateTmpFile()
+	file, err := os.Open(path)
+	check(err)
+	defer file.Close()
+
+	sc := iosupport.NewScanner(file)
+	sc.KeepNewlineSequence(true)
+	lines := strings.Split(data, "\n")
+
+	for i, bts := range []string(lines) {
+		sc.ScanLine()
+		eol := ""
+		if i+1 < len(lines) {
+			eol = "\n"
+		}
+		expected := []byte(bts + eol)
+		actual := sc.Bytes()
+		if !bytes.Equal(actual, expected) {
+			t.Errorf("Expected '%v' but got '%v'", expected, actual)
+		}
+	}
+}
+
 func TestScannerText(t *testing.T) {
 	path := generateTmpFile()
 	file, err := os.Open(path)
@@ -62,6 +86,28 @@ func TestScannerText(t *testing.T) {
 
 	for _, expected := range []string(lines) {
 		sc.ScanLine()
+		actual := sc.Text()
+		if actual != expected {
+			t.Errorf("Expected '%v' but got '%v'", expected, actual)
+		}
+	}
+}
+
+func TestScannerTextKeepNewlineSequence(t *testing.T) {
+	path := generateTmpFile()
+	file, err := os.Open(path)
+	check(err)
+	defer file.Close()
+
+	sc := iosupport.NewScanner(file)
+	sc.KeepNewlineSequence(true)
+	lines := strings.Split(data, "\n")
+
+	for i, expected := range []string(lines) {
+		sc.ScanLine()
+		if i+1 < len(lines) {
+			expected = expected + "\n"
+		}
 		actual := sc.Text()
 		if actual != expected {
 			t.Errorf("Expected '%v' but got '%v'", expected, actual)
