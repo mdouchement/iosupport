@@ -1,7 +1,9 @@
 package iosupport
 
 import (
+	"bufio"
 	"errors"
+	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -71,6 +73,27 @@ func (ti *TsvIndexer) Sort() {
 	sort.Sort(ti.Lines)
 }
 
+// Transfer writes sorted TSV into a new file
+func (ti *TsvIndexer) Transfer(output io.Writer) error {
+	w := bufio.NewWriter(output)
+
+	// For all sorted line contained ine the TSV
+	for _, tsvLine := range ti.Lines {
+		line := ti.I.Lines[tsvLine.Index]                     // Retreives current line index from input file
+		token, err := ti.I.sc.readAt(line.Offset, line.Limit) // Reads the current line
+		if err != nil {
+			return err
+		}
+		if _, err := w.Write(token); err != nil { // writes the current line into the sorted TSV output
+			return err
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Sort stuff
 
 func (slice tsvLines) Len() int {
@@ -78,9 +101,9 @@ func (slice tsvLines) Len() int {
 }
 
 func (slice tsvLines) Less(i, j int) bool {
-	b := true
+	b := false
 	for x, comparable := range slice[i].Comparables {
-		b = b && comparable < slice[j].Comparables[x]
+		b = b || comparable < slice[j].Comparables[x]
 	}
 	return b
 }

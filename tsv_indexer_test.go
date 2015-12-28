@@ -1,13 +1,14 @@
 package iosupport_test
 
 import (
+	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/mdouchement/iosupport"
 )
 
-var tsvIndexerInput = "c1,c2,c3\nval1,val2,val3\nval4,val5,val6\n"
+var tsvIndexerInput = "c1,c2,c3\nval45,val2,val3\nval40,val2,val6\n"
 var tsvIndexerInputFields = []string{"c2", "c1"}
 
 var tsvIndexerInputWithoutHeader = "val1,val2,val3\nval4,val5,val6\nval7,val8,val9\n"
@@ -26,12 +27,12 @@ func TestTsvIndexerAnalyze(t *testing.T) {
 	for i, expectedLine := range expected.Lines {
 
 		if actual.Lines[i].Index != expectedLine.Index {
-			t.Errorf("Expected '%v' but got '%v' at index %v", actual.Lines[i].Index, expectedLine.Index, i)
+			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Index, actual.Lines[i].Index, i)
 		}
 
 		for j, exepectedComparable := range expectedLine.Comparables {
 			if actual.Lines[i].Comparables[j] != exepectedComparable {
-				t.Errorf("Expected '%v' but got '%v' at index %v", actual.Lines[i].Comparables[j], exepectedComparable, i)
+				t.Errorf("Expected '%v' but got '%v' at index %v", exepectedComparable, actual.Lines[i].Comparables[j], i)
 			}
 		}
 	}
@@ -61,12 +62,12 @@ func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
 	t.Logf("actual.Lines: %v", actual.Lines)
 	for i, expectedLine := range expected.Lines {
 		if actual.Lines[i].Index != expectedLine.Index {
-			t.Errorf("Expected '%v' but got '%v' at index %v", actual.Lines[i].Index, expectedLine.Index, i)
+			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Index, actual.Lines[i].Index, i)
 		}
 
 		for j, exepectedComparable := range expectedLine.Comparables {
 			if actual.Lines[i].Comparables[j] != exepectedComparable {
-				t.Errorf("Expected '%v' but got '%v' at index %v", actual.Lines[i].Comparables[j], exepectedComparable, i)
+				t.Errorf("Expected '%v' but got '%v' at index %v", exepectedComparable, actual.Lines[i].Comparables[j], i)
 			}
 		}
 	}
@@ -95,25 +96,47 @@ func TestTsvIndexerSortIsEmpty(t *testing.T) {
 	}
 }
 
-func TestTsvSortAnalyze(t *testing.T) {
+func TestTsvSort(t *testing.T) {
 	file, actual, expected := prepareTsvIndexer(tsvIndexerInput)
 	defer file.Close()
 
 	actual.Analyze()
 	actual.Sort()
 
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{0, []string{"", ""}}, iosupport.TsvLine{2, []string{"val2", "val40"}}, iosupport.TsvLine{1, []string{"val2", "val45"}}}
+
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines: %v", actual.Lines)
 	for i, expectedLine := range expected.Lines {
 		if actual.Lines[i].Index != expectedLine.Index {
-			t.Errorf("Expected '%v' but got '%v' at index %v", actual.Lines[i].Index, expectedLine.Index, i)
+			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Index, actual.Lines[i].Index, i)
 		}
 
-		for j, exepectedComparable := range expectedLine.Comparables {
-			if actual.Lines[i].Comparables[j] != exepectedComparable {
-				t.Errorf("Expected '%v' but got '%v' at index %v", actual.Lines[i].Comparables[j], exepectedComparable, i)
+		for j, expectedComparable := range expectedLine.Comparables {
+			if actual.Lines[i].Comparables[j] != expectedComparable {
+				t.Errorf("Expected '%v' but got '%v' at index %v", expectedComparable, actual.Lines[i].Comparables[j], i)
 			}
 		}
+	}
+}
+
+func TestTsvTransfer(t *testing.T) {
+	ifile, current, _ := prepareTsvIndexer(tsvIndexerInput)
+	defer ifile.Close()
+	ofile, err := ioutil.TempFile("/tmp", "tsv_transfer")
+	check(err)
+	defer ofile.Close()
+
+	current.Analyze()
+	current.Sort()
+	current.Transfer(ofile)
+
+	buff, err := ioutil.ReadFile(ofile.Name())
+	check(err)
+	actual := string(buff)
+	expected := "c1,c2,c3\nval40,val2,val6\nval45,val2,val3\n"
+	if actual != expected {
+		t.Errorf("Expected:\n%v but got:\n%v", expected, actual)
 	}
 }
 
@@ -135,6 +158,6 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 	expected.I.NbOfLines = 3
 	expected.I.Lines = []iosupport.Line{iosupport.Line{0, 0, 9}, iosupport.Line{1, 10, 15}, iosupport.Line{2, 16, 15}}
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{0, []string{"", ""}}, iosupport.TsvLine{1, []string{"val2", "val1"}}, iosupport.TsvLine{2, []string{"val5", "val4"}}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{0, []string{"", ""}}, iosupport.TsvLine{1, []string{"val2", "val45"}}, iosupport.TsvLine{2, []string{"val2", "val40"}}}
 	return
 }

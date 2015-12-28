@@ -28,11 +28,14 @@ import (
 // See other methods for custom usage
 
 var (
-	LF       byte   = '\n'
-	CR       byte   = '\r'
-	newLines []byte = []byte{CR, LF}
+	// LF -> linefeed
+	LF byte = '\n'
+	// CR -> carriage return
+	CR       byte = '\r'
+	newLines      = []byte{CR, LF}
 )
 
+// Scanner conatins all stuff for reading a buffered file
 type Scanner struct {
 	f       *os.File      // The file provided by the client.
 	r       *bufio.Reader // Buffered reader on given file.
@@ -41,6 +44,7 @@ type Scanner struct {
 	err     error         // Sticky error.
 }
 
+// NewScanner instanciates a Scanner
 func NewScanner(f *os.File) *Scanner {
 	return &Scanner{
 		f:       f,
@@ -49,7 +53,7 @@ func NewScanner(f *os.File) *Scanner {
 	}
 }
 
-// Keep the newline sequence in read lines
+// KeepNewlineSequence keeps the newline sequence in read lines
 func (s *Scanner) KeepNewlineSequence(b bool) {
 	s.keepnls = b
 }
@@ -116,7 +120,7 @@ func (s *Scanner) EachLine(fn func([]byte, error)) {
 	}
 }
 
-// EachLine iterate on each line as string format and execute the given function
+// EachString iterates on each line as string format and execute the given function
 func (s *Scanner) EachString(fn func(string, error)) {
 	s.Reset()
 	for s.ScanLine() {
@@ -131,6 +135,7 @@ func (s *Scanner) setErr(err error) {
 	}
 }
 
+// IsLineEmpty says if the current line is empty (only when newline character is not keeped)
 func (s *Scanner) IsLineEmpty() bool {
 	return len(s.token) == 0
 }
@@ -163,4 +168,12 @@ func (s *Scanner) handleNewLineSequence(currentNl, nextNl byte) {
 			return
 		}
 	}
+}
+
+func (s *Scanner) readAt(offset int64, limit int) ([]byte, error) {
+	token := make([]byte, limit)
+	if _, err := s.f.ReadAt(token, offset); err != nil {
+		return nil, err
+	}
+	return token, nil
 }
