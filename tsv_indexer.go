@@ -94,7 +94,9 @@ func (ti *TsvIndexer) Transfer(output io.Writer) error {
 	return nil
 }
 
-// Sort stuff
+// ------------------ //
+// Sort stuff         //
+// ------------------ //
 
 func (slice tsvLines) Len() int {
 	return len(slice)
@@ -112,7 +114,9 @@ func (slice tsvLines) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-// Analyze stuff
+// ------------------ //
+// Analyze stuff      //
+// ------------------ //
 
 // TODO Handle invalid separator (or not)
 func (ti *TsvIndexer) tsvLineAppender(line []byte, index int) {
@@ -121,15 +125,15 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int) {
 	if index == 0 && ti.Header {
 		ti.findFieldsIndex(row)
 		// Build empty comparable
-		// When comparables are sorted this one, the header, is still the first line
+		// When comparables are sorted, this one (the header) remains the first line
 		comparables := []string{}
 		for i := 0; i < len(ti.Fields); i++ {
 			comparables = append(comparables, "")
 		}
 		ti.Lines = append(ti.Lines, TsvLine{index, comparables})
 	} else if index == 0 {
-		// Without header, fields are named like the given pattern /var\d+/
-		// \d+ is the index of the variable
+		// Without header, fields are named like the following pattern /var\d+/
+		// \d+ is used for the index of the variable
 		//
 		// e.g. `var1,var2,var3` with `var1` had the index 0
 		re, _ := regexp.Compile(`var(\d+)`)
@@ -139,7 +143,7 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int) {
 				panic(err)
 			}
 			ti.FieldsIndex[field] = i - 1
-			ti.appendComparable(row[i-1], index) // The first row contains data (it is not an header)
+			ti.appendComparable(row[i-1], index) // The first row contains data (/!\ it is not an header)
 		}
 	} else {
 		for _, field := range ti.Fields {
