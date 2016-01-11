@@ -26,11 +26,12 @@ func NewIndexer(sc *Scanner) *Indexer {
 // Analyze creates line's index
 func (i *Indexer) Analyze(fns ...func([]byte, int)) error {
 	var offset int64
+	var limit int
 	for i.sc.ScanLine() {
 		if i.sc.Err() != nil {
 			return i.sc.Err()
 		}
-		limit := len(i.sc.Bytes())
+		limit = len(i.sc.Bytes())
 		i.Lines = append(i.Lines, Line{i.NbOfLines, offset, limit})
 		if i.hasReadFunction(fns) {
 			fns[0](i.sc.Bytes(), i.NbOfLines)

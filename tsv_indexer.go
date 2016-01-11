@@ -118,10 +118,14 @@ func (slice tsvLines) Swap(i, j int) {
 // Analyze stuff      //
 // ------------------ //
 
+var str string
+var row []string
+var fieldIndex int
+
 // TODO Handle invalid separator (or not)
 func (ti *TsvIndexer) tsvLineAppender(line []byte, index int) {
-	str := TrimNewline(string(line))
-	row := strings.Split(str, ti.Separator)
+	str = TrimNewline(string(line))
+	row = strings.Split(str, ti.Separator)
 	if index == 0 && ti.Header {
 		ti.findFieldsIndex(row)
 		// Build empty comparable
@@ -147,8 +151,8 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int) {
 		}
 	} else {
 		for _, field := range ti.Fields {
-			i := ti.FieldsIndex[field]
-			ti.appendComparable(row[i], index)
+			fieldIndex = ti.FieldsIndex[field]
+			ti.appendComparable(row[fieldIndex], index)
 		}
 	}
 }
