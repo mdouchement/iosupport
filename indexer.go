@@ -2,7 +2,7 @@ package iosupport
 
 // Line had variables off indexed line
 type Line struct {
-	ID     int
+	Index  int
 	Offset int64
 	Limit  int
 }
@@ -24,7 +24,9 @@ func NewIndexer(sc *Scanner) *Indexer {
 }
 
 // Analyze creates line's index
-func (i *Indexer) Analyze(fns ...func([]byte, int)) error {
+// Called without arguments, it appends values in Indexer#Lines
+// Called with func as argument, it passes values to the func with this following signature fn(line []byte, index int, offset int64, limit int)
+func (i *Indexer) Analyze(fns ...func([]byte, int, int64, int)) error {
 	var offset int64
 	var limit int
 	for i.sc.ScanLine() {
@@ -32,9 +34,10 @@ func (i *Indexer) Analyze(fns ...func([]byte, int)) error {
 			return i.sc.Err()
 		}
 		limit = len(i.sc.Bytes())
-		i.Lines = append(i.Lines, Line{i.NbOfLines, offset, limit})
 		if i.hasReadFunction(fns) {
-			fns[0](i.sc.Bytes(), i.NbOfLines)
+			fns[0](i.sc.Bytes(), i.NbOfLines, offset, limit)
+		} else {
+			i.Lines = append(i.Lines, Line{i.NbOfLines, offset, limit})
 		}
 		i.NbOfLines++
 		offset += int64(limit)
@@ -42,7 +45,7 @@ func (i *Indexer) Analyze(fns ...func([]byte, int)) error {
 	return nil
 }
 
-func (i *Indexer) hasReadFunction(fns []func([]byte, int)) bool {
+func (i *Indexer) hasReadFunction(fns []func([]byte, int, int64, int)) bool {
 	switch len(fns) {
 	case 0:
 		return false

@@ -26,6 +26,8 @@ func TrimNewline(line string) string {
 type TsvLine struct {
 	Index       int
 	Comparables []string
+	Offset      int64
+	Limit       int
 }
 type tsvLines []TsvLine
 
@@ -78,8 +80,7 @@ func (ti *TsvIndexer) Transfer(output io.Writer) error {
 	w := bufio.NewWriter(output)
 
 	// For all sorted line contained ine the TSV
-	for _, tsvLine := range ti.Lines {
-		line := ti.I.Lines[tsvLine.Index]                     // Retreives current line index from input file
+	for _, line := range ti.Lines {
 		token, err := ti.I.sc.readAt(line.Offset, line.Limit) // Reads the current line
 		if err != nil {
 			return err
@@ -123,18 +124,17 @@ var row []string
 var fieldIndex int
 
 // TODO Handle invalid separator (or not)
-func (ti *TsvIndexer) tsvLineAppender(line []byte, index int) {
+func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limit int) {
 	str = TrimNewline(string(line))
 	row = strings.Split(str, ti.Separator)
+	ti.Lines = append(ti.Lines, TsvLine{index, []string{}, offset, limit})
 	if index == 0 && ti.Header {
 		ti.findFieldsIndex(row)
 		// Build empty comparable
 		// When comparables are sorted, this one (the header) remains the first line
-		comparables := []string{}
 		for i := 0; i < len(ti.Fields); i++ {
-			comparables = append(comparables, "")
+			ti.appendComparable("", index)
 		}
-		ti.Lines = append(ti.Lines, TsvLine{index, comparables})
 	} else if index == 0 {
 		// Without header, fields are named like the following pattern /var\d+/
 		// \d+ is used for the index of the variable
@@ -158,11 +158,7 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int) {
 }
 
 func (ti *TsvIndexer) appendComparable(comparable string, index int) {
-	if index > len(ti.Lines)-1 {
-		ti.Lines = append(ti.Lines, TsvLine{index, []string{comparable}})
-	} else {
-		ti.Lines[index].Comparables = append(ti.Lines[index].Comparables, comparable)
-	}
+	ti.Lines[index].Comparables = append(ti.Lines[index].Comparables, comparable)
 }
 
 // Append to TsvIndexer.FieldsIndex the index in the row of all TsvIndexer.Fields
