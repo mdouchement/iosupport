@@ -57,7 +57,7 @@ func NewTsvIndexer(sc *Scanner, header bool, separator string, fields []string) 
 // Analyze parses the TSV and generates the indexes
 func (ti *TsvIndexer) Analyze() error {
 	if !ti.Header {
-		re, _ := regexp.Compile(`var(\d+)`)
+		re := regexp.MustCompile(`var(\d+)`)
 		for _, field := range ti.Fields {
 			if len(re.FindStringSubmatch(field)) < 2 {
 				return errors.New("Field " + field + " do not match with pattern /var\\d+/")
@@ -119,17 +119,21 @@ func (slice tsvLines) Swap(i, j int) {
 // Analyze stuff      //
 // ------------------ //
 
-var str string
-var row []string
-var fieldIndex int
+type appenderBuffer struct {
+	str        string
+	row        []string
+	fieldIndex int
+}
+
+var buf appenderBuffer
 
 // TODO Handle invalid separator (or not)
 func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limit int) {
-	str = TrimNewline(string(line))
-	row = strings.Split(str, ti.Separator)
+	buf.str = TrimNewline(string(line))
+	buf.row = strings.Split(buf.str, ti.Separator)
 	ti.Lines = append(ti.Lines, TsvLine{index, []string{}, offset, limit})
 	if index == 0 && ti.Header {
-		ti.findFieldsIndex(row)
+		ti.findFieldsIndex(buf.row)
 		// Build empty comparable
 		// When comparables are sorted, this one (the header) remains the first line
 		for i := 0; i < len(ti.Fields); i++ {
@@ -140,25 +144,29 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limi
 		// \d+ is used for the index of the variable
 		//
 		// e.g. `var1,var2,var3` with `var1` had the index 0
-		re, _ := regexp.Compile(`var(\d+)`)
+		re := regexp.MustCompile(`var(\d+)`)
 		for _, field := range ti.Fields {
 			i, err := strconv.Atoi(re.FindStringSubmatch(field)[1])
 			if err != nil {
 				panic(err)
 			}
 			ti.FieldsIndex[field] = i - 1
-			ti.appendComparable(row[i-1], index) // The first row contains data (/!\ it is not an header)
+			ti.appendComparable(buf.row[i-1], index) // The first row contains data (/!\ it is not an header)
 		}
 	} else {
 		for _, field := range ti.Fields {
-			fieldIndex = ti.FieldsIndex[field]
-			ti.appendComparable(row[fieldIndex], index)
+			buf.fieldIndex = ti.FieldsIndex[field]
+			ti.appendComparable(buf.row[buf.fieldIndex], index)
 		}
 	}
+	buf.str = ""
+	buf.row = nil
 }
 
 func (ti *TsvIndexer) appendComparable(comparable string, index int) {
-	ti.Lines[index].Comparables = append(ti.Lines[index].Comparables, comparable)
+	cp := make([]byte, len(comparable))
+	copy(cp, comparable) // Freeing the underlying array (https://blog.golang.org/go-slices-usage-and-internals - chapter: A possible "gotcha")
+	ti.Lines[index].Comparables = append(ti.Lines[index].Comparables, string(cp))
 }
 
 // Append to TsvIndexer.FieldsIndex the index in the row of all TsvIndexer.Fields
