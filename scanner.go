@@ -42,6 +42,13 @@ type Scanner struct {
 	keepnls bool          // Keep the newline sequence in returned strings
 	token   []byte        // Last token returned by split (scan).
 	err     error         // Sticky error.
+	seekers []seeker      // Internal use
+}
+
+// Internal use
+type seeker struct {
+	f      *os.File
+	offset int64
 }
 
 // NewScanner instanciates a Scanner
@@ -50,6 +57,7 @@ func NewScanner(f *os.File) *Scanner {
 		f:       f,
 		r:       bufio.NewReader(f),
 		keepnls: false,
+		seekers: []seeker{seeker{f, 0}},
 	}
 }
 
@@ -170,9 +178,41 @@ func (s *Scanner) handleNewLineSequence(currentNl, nextNl byte) {
 	}
 }
 
+// -------------------------- //
+// Random accessor stuff      //
+// -------------------------- //
+
+// appendSeeker appends a new seeker based on given offset. Seekers must be appened ordering by the offset
+func (s *Scanner) appendSeeker(offset int64) {
+	f, _ := os.Open(s.f.Name())
+	s.seekers = append(s.seekers, seeker{f, offset})
+}
+
+// selectSeeker returns the rearest inferior seeker
+// e.g. A file with 10,000,000 lines
+//    s0 -> offset 0
+//    s1 -> offset 2,500,000
+//    s2 -> offset 5,000,000
+//    s3 -> offset 7,500,000
+// offset 666 returns seeker s0
+// offset 9,999,999 returns seeker s3
+func (s *Scanner) selectSeeker(offset int64) seeker {
+	for i, seeker := range s.seekers {
+		if seeker.offset > offset {
+			return s.seekers[i-1]
+		}
+	}
+	return s.seekers[len(s.seekers)-1]
+}
+
+var cpt = make(map[int64]int64)
+
 func (s *Scanner) readAt(offset int64, limit int) ([]byte, error) {
 	token := make([]byte, limit)
-	if _, err := s.f.ReadAt(token, offset); err != nil {
+
+	cpt[s.selectSeeker(offset).offset]++
+
+	if _, err := s.selectSeeker(offset).f.ReadAt(token, offset); err != nil {
 		return nil, err
 	}
 	return token, nil

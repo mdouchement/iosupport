@@ -3,6 +3,7 @@ package iosupport
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"sort"
@@ -67,6 +68,7 @@ func (ti *TsvIndexer) Analyze() error {
 	if err := ti.I.Analyze(ti.tsvLineAppender); err != nil {
 		return err
 	}
+	ti.createSeekers() // For transfer part
 	return nil
 }
 
@@ -91,6 +93,10 @@ func (ti *TsvIndexer) Transfer(output io.Writer) error {
 	}
 	if err := w.Flush(); err != nil {
 		return err
+	}
+	fmt.Println("Seekers usage:")
+	for k, v := range cpt {
+		fmt.Printf("  %d - %d\n", k, v)
 	}
 	return nil
 }
@@ -178,5 +184,22 @@ func (ti *TsvIndexer) findFieldsIndex(row []string) {
 				break
 			}
 		}
+	}
+}
+
+const lineThreshold = 2500000
+
+func (ti *TsvIndexer) createSeekers() {
+	nol := len(ti.Lines)
+	if nol < lineThreshold {
+		return
+	}
+
+	nbOfThresholds := nol / lineThreshold
+	lineOffset := int64(nol / (nbOfThresholds + 1))
+	lineIndex := int64(0)
+	for i := 0; i < nbOfThresholds; i++ {
+		lineIndex += lineOffset
+		ti.I.sc.appendSeeker(ti.Lines[lineIndex-1].Offset)
 	}
 }
