@@ -182,10 +182,34 @@ func (s *Scanner) handleNewLineSequence(currentNl, nextNl byte) {
 // Random accessor stuff      //
 // -------------------------- //
 
+const lineThreshold = 2500000
+
+// createSeekers creates seekers for increase random access of the read file
+func (s *Scanner) createSeekers(nol int, offset func(int) int64) {
+	if nol < lineThreshold {
+		return
+	}
+
+	nbOfThresholds := nol / lineThreshold
+	lineOffset := nol / (nbOfThresholds + 1)
+	lineIndex := 0
+	for i := 0; i < nbOfThresholds; i++ {
+		lineIndex += lineOffset
+		s.appendSeeker(offset(lineIndex))
+	}
+}
+
 // appendSeeker appends a new seeker based on given offset. Seekers must be appened ordering by the offset
 func (s *Scanner) appendSeeker(offset int64) {
 	f, _ := os.Open(s.f.Name())
 	s.seekers = append(s.seekers, seeker{f, offset})
+}
+
+// releaseSeekers closes internal opened file
+func (s *Scanner) releaseSeekers() {
+	for i := 1; i < len(s.seekers); i++ {
+		s.seekers[i].f.Close()
+	}
 }
 
 // selectSeeker returns the rearest inferior seeker
