@@ -205,13 +205,8 @@ func (s *Scanner) selectSeeker(offset int64) seeker {
 	return s.seekers[len(s.seekers)-1]
 }
 
-var cpt = make(map[int64]int64)
-
 func (s *Scanner) readAt(offset int64, limit int) ([]byte, error) {
 	token := make([]byte, limit)
-
-	cpt[s.selectSeeker(offset).offset]++
-
 	if _, err := s.selectSeeker(offset).f.ReadAt(token, offset); err != nil {
 		return nil, err
 	}

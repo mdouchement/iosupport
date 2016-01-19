@@ -3,7 +3,6 @@ package iosupport
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"io"
 	"regexp"
 	"sort"
@@ -93,10 +92,6 @@ func (ti *TsvIndexer) Transfer(output io.Writer) error {
 	}
 	if err := w.Flush(); err != nil {
 		return err
-	}
-	fmt.Println("Seekers usage:")
-	for k, v := range cpt {
-		fmt.Printf("  %d - %d\n", k, v)
 	}
 	return nil
 }
