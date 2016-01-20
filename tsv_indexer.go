@@ -10,19 +10,19 @@ import (
 	"strings"
 )
 
-// UnescapeSeparator cleans coposed separator like \t
+// UnescapeSeparator cleans composed separator like \t
 func UnescapeSeparator(separator string) string {
 	return strings.Replace(separator, "\\t", string([]rune{9}), -1) // String with '\t' rune
 }
 
-// TrimNewline removes newline characters from the end of line
+// TrimNewline removes newline characters at the end of line
 func TrimNewline(line string) string {
 	line = strings.TrimRight(line, "\n")
 	line = strings.TrimRight(line, "\r")
 	return strings.TrimRight(line, "\n")
 }
 
-// TsvLine describes the content of a line from a TSV
+// TsvLine describes the line's details from a TSV
 type TsvLine struct {
 	Index       int
 	Comparables []string
@@ -82,7 +82,7 @@ func (ti *TsvIndexer) Sort() {
 func (ti *TsvIndexer) Transfer(output io.Writer) error {
 	w := bufio.NewWriter(output)
 
-	// For all sorted line contained ine the TSV
+	// For all sorted lines contained in the TSV
 	for _, line := range ti.Lines {
 		token, err := ti.I.sc.readAt(line.Offset, line.Limit) // Reads the current line
 		if err != nil {
