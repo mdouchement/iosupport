@@ -23,7 +23,8 @@ import(
 )
 
 func main() {
-  file, _ := os.Open('my_file.txt')
+  file, _ := os.Open("my_file.txt")
+  defer file.Close()
 
   // See scanner.go for more examples
   sc := iosupport.NewScanner(file)
@@ -40,5 +41,13 @@ func main() {
   println(wc.Chars)
   println(wc.Words)
   println(wc.Lines)
+
+  // See tsv_indexer.go for more examples
+  indexer = iosupport.NewTsvIndexer(sc, true, ",", []string{"col2", "col1"}) // scanner, headerIsPresent, separator, fieldsForSorting
+  indexer.Analyze() // creates lines index
+  indexer.Sort() // sorts indexed lines
+  ofile, _ := os.Open("my_sorted.tsv")
+  defer ofile.Close()
+  indexer.Transfer(ofile) // transfers the input TSV in sorted output TSV
 }
 ```
