@@ -26,7 +26,7 @@ func NewIndexer(sc *Scanner) *Indexer {
 // Analyze creates line's index
 // Called without arguments, it appends values in Indexer#Lines
 // Called with func as argument, it passes values to the func with this following signature fn(line []byte, index int, offset int64, limit int)
-func (i *Indexer) Analyze(fns ...func([]byte, int, int64, int)) error {
+func (i *Indexer) Analyze(fns ...func([]byte, int, int64, int) error) error {
 	var offset int64
 	var limit int
 	for i.sc.ScanLine() {
@@ -35,7 +35,9 @@ func (i *Indexer) Analyze(fns ...func([]byte, int, int64, int)) error {
 		}
 		limit = len(i.sc.Bytes())
 		if i.hasReadFunction(fns) {
-			fns[0](i.sc.Bytes(), i.NbOfLines, offset, limit)
+			if err := fns[0](i.sc.Bytes(), i.NbOfLines, offset, limit); err != nil {
+				return err
+			}
 		} else {
 			i.Lines = append(i.Lines, Line{i.NbOfLines, offset, limit})
 		}
@@ -45,7 +47,7 @@ func (i *Indexer) Analyze(fns ...func([]byte, int, int64, int)) error {
 	return nil
 }
 
-func (i *Indexer) hasReadFunction(fns []func([]byte, int, int64, int)) bool {
+func (i *Indexer) hasReadFunction(fns []func([]byte, int, int64, int) error) bool {
 	switch len(fns) {
 	case 0:
 		return false

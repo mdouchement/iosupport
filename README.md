@@ -29,9 +29,7 @@ func main() {
   // See scanner.go for more examples
   sc := iosupport.NewScanner(file)
   sc.EachString(func(line string, err error) {
-    if err != nil {
-      panic(err.Error())
-    }
+    check(err)
     println(line)
   }
 
@@ -44,10 +42,17 @@ func main() {
 
   // See tsv_indexer.go for more examples
   indexer = iosupport.NewTsvIndexer(sc, true, ",", []string{"col2", "col1"}) // scanner, headerIsPresent, separator, fieldsForSorting
-  indexer.Analyze() // creates lines index
+  err := indexer.Analyze() // creates lines index
+  check(err)
   indexer.Sort() // sorts indexed lines
   ofile, _ := os.Open("my_sorted.tsv")
   defer ofile.Close()
   indexer.Transfer(ofile) // transfers the input TSV in sorted output TSV
+}
+
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 ```
