@@ -73,6 +73,18 @@ func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
 	}
 }
 
+func TestTsvIndexerAnalyzeHasBadFields(t *testing.T) {
+	file, actual, _ := prepareTsvIndexer(tsvIndexerInput)
+	defer file.Close()
+
+	actual.Fields = []string{"___c2", "___c1"}
+	err := actual.Analyze()
+
+	if err.Error() != "Invalid separator or sorted fields" {
+		t.Errorf("Expected 'Invalid separator or sorted fields' but got '%s'", err.Error())
+	}
+}
+
 func TestTsvIndexerAnalyzeIsEmpty(t *testing.T) {
 	file, actual, _ := prepareTsvIndexer(emptyTsvIndexerInput)
 	defer file.Close()

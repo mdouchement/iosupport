@@ -132,12 +132,14 @@ type appenderBuffer struct {
 var buf appenderBuffer
 
 // TODO Handle invalid separator (or not)
-func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limit int) {
+func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limit int) error {
 	buf.str = TrimNewline(string(line))
 	buf.row = strings.Split(buf.str, ti.Separator)
 	ti.Lines = append(ti.Lines, TsvLine{index, []string{}, offset, limit})
 	if index == 0 && ti.Header {
-		ti.findFieldsIndex(buf.row)
+		if err := ti.findFieldsIndex(buf.row); err != nil {
+			return err
+		}
 		// Build empty comparable
 		// When comparables are sorted, this one (the header) remains the first line
 		for i := 0; i < len(ti.Fields); i++ {
@@ -152,7 +154,7 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limi
 		for _, field := range ti.Fields {
 			i, err := strconv.Atoi(re.FindStringSubmatch(field)[1])
 			if err != nil {
-				panic(err)
+				return err
 			}
 			ti.FieldsIndex[field] = i - 1
 			ti.appendComparable(buf.row[i-1], index) // The first row contains data (/!\ it is not an header)
@@ -165,6 +167,7 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limi
 	}
 	buf.str = ""
 	buf.row = nil
+	return nil
 }
 
 func (ti *TsvIndexer) appendComparable(comparable string, index int) {
@@ -174,7 +177,7 @@ func (ti *TsvIndexer) appendComparable(comparable string, index int) {
 }
 
 // Append to TsvIndexer.FieldsIndex the index in the row of all TsvIndexer.Fields
-func (ti *TsvIndexer) findFieldsIndex(row []string) {
+func (ti *TsvIndexer) findFieldsIndex(row []string) error {
 	for i, head := range row {
 		for _, field := range ti.Fields {
 			if head == field {
@@ -183,4 +186,8 @@ func (ti *TsvIndexer) findFieldsIndex(row []string) {
 			}
 		}
 	}
+	if len(ti.Fields) != len(ti.FieldsIndex) {
+		return errors.New("Invalid separator or sorted fields")
+	}
+	return nil
 }
