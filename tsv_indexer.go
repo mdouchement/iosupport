@@ -187,7 +187,7 @@ func (ti *TsvIndexer) findFieldsIndex(row []string) error {
 		}
 	}
 	if len(ti.Fields) != len(ti.FieldsIndex) {
-		return errors.New("Invalid separator or sorted fields")
+		return errors.New("Invalid separator or sort fields")
 	}
 	return nil
 }
