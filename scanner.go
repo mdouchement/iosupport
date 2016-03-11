@@ -3,7 +3,6 @@ package iosupport
 import (
 	"bufio"
 	"io"
-	"os"
 )
 
 // This Scanner provides very large file reader (also file with very long lines).
@@ -37,27 +36,19 @@ var (
 
 // Scanner conatins all stuff for reading a buffered file
 type Scanner struct {
-	f       *os.File      // The file provided by the client.
+	f       FileReader    // The file provided by the client.
 	r       *bufio.Reader // Buffered reader on given file.
 	keepnls bool          // Keep the newline sequence in returned strings
 	token   []byte        // Last token returned by split (scan).
 	err     error         // Sticky error.
-	seekers []seeker      // Internal use
-}
-
-// Internal use
-type seeker struct {
-	f      *os.File
-	offset int64
 }
 
 // NewScanner instanciates a Scanner
-func NewScanner(f *os.File) *Scanner {
+func NewScanner(f FileReader) *Scanner {
 	return &Scanner{
 		f:       f,
 		r:       bufio.NewReader(f),
 		keepnls: false,
-		seekers: []seeker{seeker{f, 0}},
 	}
 }
 
@@ -136,6 +127,18 @@ func (s *Scanner) EachString(fn func(string, error)) {
 	}
 }
 
+// ReadAt reads len(b) bytes from the Scanner starting at byte offset off.
+// It returns the number of bytes read and the error, if any.
+// ReadAt always returns a non-nil error when n < len(b).
+// At end of scanner, that error is io.EOF.
+func (s *Scanner) ReadAt(offset int64, limit int) ([]byte, error) {
+	token := make([]byte, limit)
+	if _, err := s.f.ReadAt(token, offset); err != nil {
+		return nil, err
+	}
+	return token, nil
+}
+
 // Records the first error encountered.
 func (s *Scanner) setErr(err error) {
 	if s.err == nil || s.err == io.EOF {
@@ -176,63 +179,4 @@ func (s *Scanner) handleNewLineSequence(currentNl, nextNl byte) {
 			return
 		}
 	}
-}
-
-// -------------------------- //
-// Random accessor stuff      //
-// -------------------------- //
-
-const lineThreshold = 2500000
-
-// createSeekers creates seekers for increase the speed of random accesses of the read file
-func (s *Scanner) createSeekers(nol int, offset func(int) int64) {
-	if nol < lineThreshold {
-		return
-	}
-
-	nbOfThresholds := nol / lineThreshold
-	lineOffset := nol / (nbOfThresholds + 1)
-	lineIndex := 0
-	for i := 0; i < nbOfThresholds; i++ {
-		lineIndex += lineOffset
-		s.appendSeeker(offset(lineIndex))
-	}
-}
-
-// appendSeeker appends a new seeker based on the given offset. Seekers must be appened ordering by the offset
-func (s *Scanner) appendSeeker(offset int64) {
-	f, _ := os.Open(s.f.Name())
-	s.seekers = append(s.seekers, seeker{f, offset})
-}
-
-// releaseSeekers closes internal opened file
-func (s *Scanner) releaseSeekers() {
-	for i := 1; i < len(s.seekers); i++ {
-		s.seekers[i].f.Close()
-	}
-}
-
-// selectSeeker returns the nearest inferior seeker
-// e.g. A file with 10,000,000 lines
-//    s0 -> offset 0
-//    s1 -> offset 2,500,000
-//    s2 -> offset 5,000,000
-//    s3 -> offset 7,500,000
-// offset 666 returns seeker s0
-// offset 9,999,999 returns seeker s3
-func (s *Scanner) selectSeeker(offset int64) seeker {
-	for i, seeker := range s.seekers {
-		if seeker.offset > offset {
-			return s.seekers[i-1]
-		}
-	}
-	return s.seekers[len(s.seekers)-1]
-}
-
-func (s *Scanner) readAt(offset int64, limit int) ([]byte, error) {
-	token := make([]byte, limit)
-	if _, err := s.selectSeeker(offset).f.ReadAt(token, offset); err != nil {
-		return nil, err
-	}
-	return token, nil
 }

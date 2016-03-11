@@ -80,8 +80,8 @@ func TestTsvIndexerAnalyzeHasBadFields(t *testing.T) {
 	actual.Fields = []string{"___c2", "___c1"}
 	err := actual.Analyze()
 
-	if err.Error() != "Invalid separator or sorted fields" {
-		t.Errorf("Expected 'Invalid separator or sorted fields' but got '%s'", err.Error())
+	if err.Error() != "Invalid separator or sort fields" {
+		t.Errorf("Expected 'Invalid separator or sort fields' but got '%s'", err.Error())
 	}
 }
 
@@ -159,14 +159,17 @@ func TestTsvTransfer(t *testing.T) {
 func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexer, expected *iosupport.TsvIndexer) {
 	path := generateTmpFile(input)
 	var err error
-	file, err = os.Open(path)
-	check(err)
 
-	sc := iosupport.NewScanner(file)
+	sc := func() *iosupport.Scanner {
+		file, err = os.Open(path)
+		check(err)
+		return iosupport.NewScanner(file)
+	}
+
 	actual = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
 
 	expected = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
-	expected.I = iosupport.NewIndexer(sc)
+	expected.I = iosupport.NewIndexer(sc())
 	expected.I.NbOfLines = 3
 	// expected.I.Lines = []iosupport.Line{iosupport.Line{0, 0, 9}, iosupport.Line{1, 10, 15}, iosupport.Line{2, 16, 15}}
 

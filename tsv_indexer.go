@@ -31,27 +31,46 @@ type TsvLine struct {
 }
 type tsvLines []TsvLine
 
+// Internal use
+type seeker struct {
+	sc     *Scanner
+	offset int64
+}
+
 // TsvIndexer contains all stuff for indexing columns from a TSV
 type TsvIndexer struct {
-	I           *Indexer
-	Header      bool
-	Separator   string
-	Fields      []string
-	FieldsIndex map[string]int
-	Lines       tsvLines
+	I             *Indexer
+	Header        bool
+	Separator     string
+	Fields        []string
+	FieldsIndex   map[string]int
+	Lines         tsvLines
+	seekers       []seeker
+	scannerFunc   func() *Scanner
+	LineThreshold int
 }
 
 // NewTsvIndexer instanciates a new TsvIndexer
-func NewTsvIndexer(sc *Scanner, header bool, separator string, fields []string) *TsvIndexer {
+func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, fields []string) *TsvIndexer {
+	sc := scannerFunc()
 	sc.Reset()
 	sc.KeepNewlineSequence(true)
 	return &TsvIndexer{
-		I:           NewIndexer(sc),
-		Header:      header,
-		Separator:   UnescapeSeparator(separator),
-		Fields:      fields,
-		FieldsIndex: make(map[string]int),
+		I:             NewIndexer(sc),
+		Header:        header,
+		Separator:     UnescapeSeparator(separator),
+		Fields:        fields,
+		FieldsIndex:   make(map[string]int),
+		scannerFunc:   scannerFunc,
+		LineThreshold: 2500000,
+		seekers:       []seeker{seeker{sc, 0}},
 	}
+}
+
+// CloseIO closes all opened IO
+func (ti *TsvIndexer) CloseIO() {
+	ti.I.sc.f.Close()
+	ti.releaseSeekers()
 }
 
 // Analyze parses the TSV and generates the indexes
@@ -67,7 +86,7 @@ func (ti *TsvIndexer) Analyze() error {
 	if err := ti.I.Analyze(ti.tsvLineAppender); err != nil {
 		return err
 	}
-	ti.I.sc.createSeekers(len(ti.Lines), func(index int) int64 {
+	ti.createSeekers(len(ti.Lines), func(index int) int64 {
 		return ti.Lines[index].Offset
 	}) // For transfer part
 	return nil
@@ -84,7 +103,7 @@ func (ti *TsvIndexer) Transfer(output io.Writer) error {
 
 	// For all sorted lines contained in the TSV
 	for _, line := range ti.Lines {
-		token, err := ti.I.sc.readAt(line.Offset, line.Limit) // Reads the current line
+		token, err := ti.selectSeeker(line.Offset).sc.ReadAt(line.Offset, line.Limit) // Reads the current line
 		if err != nil {
 			return err
 		}
@@ -95,7 +114,7 @@ func (ti *TsvIndexer) Transfer(output io.Writer) error {
 	if err := w.Flush(); err != nil {
 		return err
 	}
-	ti.I.sc.releaseSeekers()
+	ti.releaseSeekers()
 	return nil
 }
 
@@ -120,6 +139,55 @@ func (slice tsvLines) Swap(i, j int) {
 }
 
 // ------------------ //
+// Transfer stuff     //
+// ------------------ //
+
+// createSeekers creates seekers for increase the speed of random accesses of the read file
+func (ti *TsvIndexer) createSeekers(nol int, offset func(int) int64) {
+	if nol < ti.LineThreshold {
+		return
+	}
+
+	nbOfThresholds := nol / ti.LineThreshold
+	lineOffset := nol / (nbOfThresholds + 1)
+	lineIndex := 0
+	for i := 0; i < nbOfThresholds; i++ {
+		lineIndex += lineOffset
+		ti.appendSeeker(offset(lineIndex))
+	}
+}
+
+// appendSeeker appends a new seeker based on the given offset. Seekers must be appened ordering by the offset
+func (ti *TsvIndexer) appendSeeker(offset int64) {
+	sc := ti.scannerFunc()
+	ti.seekers = append(ti.seekers, seeker{sc, offset})
+}
+
+// releaseSeekers closes internal opened file
+func (ti *TsvIndexer) releaseSeekers() {
+	for _, seeker := range ti.seekers {
+		seeker.sc.f.Close()
+	}
+}
+
+// selectSeeker returns the nearest inferior seeker
+// e.g. A file with 10,000,000 lines
+//    s0 -> offset 0
+//    s1 -> offset 2,500,000
+//    s2 -> offset 5,000,000
+//    s3 -> offset 7,500,000
+// offset 666 returns seeker s0
+// offset 9,999,999 returns seeker s3
+func (ti *TsvIndexer) selectSeeker(offset int64) seeker {
+	for i, seeker := range ti.seekers {
+		if seeker.offset > offset {
+			return ti.seekers[i-1]
+		}
+	}
+	return ti.seekers[len(ti.seekers)-1]
+}
+
+// ------------------ //
 // Analyze stuff      //
 // ------------------ //
 
@@ -131,7 +199,6 @@ type appenderBuffer struct {
 
 var buf appenderBuffer
 
-// TODO Handle invalid separator (or not)
 func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limit int) error {
 	buf.str = TrimNewline(string(line))
 	buf.row = strings.Split(buf.str, ti.Separator)
