@@ -7,20 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 )
-
-// UnescapeSeparator cleans composed separator like \t
-func UnescapeSeparator(separator string) string {
-	return strings.Replace(separator, "\\t", string([]rune{9}), -1) // String with '\t' rune
-}
-
-// TrimNewline removes newline characters at the end of line
-func TrimNewline(line string) string {
-	line = strings.TrimRight(line, "\n")
-	line = strings.TrimRight(line, "\r")
-	return strings.TrimRight(line, "\n")
-}
 
 // TsvLine describes the line's details from a TSV
 type TsvLine struct {
@@ -39,9 +26,9 @@ type seeker struct {
 
 // TsvIndexer contains all stuff for indexing columns from a TSV
 type TsvIndexer struct {
-	I             *Indexer
+	parser        *TsvParser // directly embedded in TsvParser?
 	Header        bool
-	Separator     string
+	Separator     byte
 	Fields        []string
 	FieldsIndex   map[string]int
 	Lines         tsvLines
@@ -56,7 +43,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, f
 	sc.Reset()
 	sc.KeepNewlineSequence(true)
 	return &TsvIndexer{
-		I:             NewIndexer(sc),
+		parser:        NewTsvParser(sc, UnescapeSeparator(separator)),
 		Header:        header,
 		Separator:     UnescapeSeparator(separator),
 		Fields:        fields,
@@ -69,7 +56,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, f
 
 // CloseIO closes all opened IO
 func (ti *TsvIndexer) CloseIO() {
-	ti.I.sc.f.Close()
+	ti.parser.sc.f.Close()
 	ti.releaseSeekers()
 }
 
@@ -83,9 +70,14 @@ func (ti *TsvIndexer) Analyze() error {
 			}
 		}
 	}
-	if err := ti.I.Analyze(ti.tsvLineAppender); err != nil {
-		return err
+	for ti.parser.ScanRow() {
+		if ti.parser.Err() != nil {
+			return ti.parser.Err()
+		}
+		ti.tsvLineAppender(ti.parser.Row(), ti.parser.Line(), ti.parser.Offset(), ti.parser.Limit())
 	}
+	ti.parser.Reset()
+
 	ti.createSeekers(len(ti.Lines), func(index int) int64 {
 		return ti.Lines[index].Offset
 	}) // For transfer part
@@ -94,6 +86,7 @@ func (ti *TsvIndexer) Analyze() error {
 
 // Sort sorts TsvLine on its comparables
 func (ti *TsvIndexer) Sort() {
+
 	sort.Sort(ti.Lines)
 }
 
@@ -191,26 +184,16 @@ func (ti *TsvIndexer) selectSeeker(offset int64) seeker {
 // Analyze stuff      //
 // ------------------ //
 
-type appenderBuffer struct {
-	str        string
-	row        []string
-	fieldIndex int
-}
-
-var buf appenderBuffer
-
-func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limit int) error {
-	buf.str = TrimNewline(string(line))
-	buf.row = strings.Split(buf.str, ti.Separator)
+func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset int64, limit int) error {
 	ti.Lines = append(ti.Lines, TsvLine{index, []string{}, offset, limit})
 	if index == 0 && ti.Header {
-		if err := ti.findFieldsIndex(buf.row); err != nil {
+		if err := ti.findFieldsIndex(row); err != nil {
 			return err
 		}
 		// Build empty comparable
 		// When comparables are sorted, this one (the header) remains the first line
 		for i := 0; i < len(ti.Fields); i++ {
-			ti.appendComparable("", index)
+			ti.appendComparable([]byte{}, index)
 		}
 	} else if index == 0 {
 		// Without header, fields are named like the following pattern /var\d+/
@@ -224,30 +207,27 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limi
 				return err
 			}
 			ti.FieldsIndex[field] = i - 1
-			ti.appendComparable(buf.row[i-1], index) // The first row contains data (/!\ it is not an header)
+			ti.appendComparable(row[i-1], index) // The first row contains data (/!\ it is not an header)
 		}
 	} else {
 		for _, field := range ti.Fields {
-			buf.fieldIndex = ti.FieldsIndex[field]
-			ti.appendComparable(buf.row[buf.fieldIndex], index)
+			ti.appendComparable(row[ti.FieldsIndex[field]], index)
 		}
 	}
-	buf.str = ""
-	buf.row = nil
 	return nil
 }
 
-func (ti *TsvIndexer) appendComparable(comparable string, index int) {
-	cp := make([]byte, len(comparable))
+func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
+	cp := make([]byte, len(comparable), len(comparable))
 	copy(cp, comparable) // Freeing the underlying array (https://blog.golang.org/go-slices-usage-and-internals - chapter: A possible "gotcha")
 	ti.Lines[index].Comparables = append(ti.Lines[index].Comparables, string(cp))
 }
 
 // Append to TsvIndexer.FieldsIndex the index in the row of all TsvIndexer.Fields
-func (ti *TsvIndexer) findFieldsIndex(row []string) error {
+func (ti *TsvIndexer) findFieldsIndex(row [][]byte) error {
 	for i, head := range row {
 		for _, field := range ti.Fields {
-			if head == field {
+			if string(head) == field {
 				ti.FieldsIndex[field] = i
 				break
 			}
