@@ -11,7 +11,6 @@ import (
 
 // TsvLine describes the line's details from a TSV
 type TsvLine struct {
-	Index       int
 	Comparables []string
 	Offset      int64
 	Limit       int
@@ -185,7 +184,7 @@ func (ti *TsvIndexer) selectSeeker(offset int64) seeker {
 // ------------------ //
 
 func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset int64, limit int) error {
-	ti.Lines = append(ti.Lines, TsvLine{index, []string{}, offset, limit})
+	ti.Lines = append(ti.Lines, TsvLine{[]string{}, offset, limit})
 	if index == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
 			return err
