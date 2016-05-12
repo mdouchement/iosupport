@@ -12,15 +12,15 @@ import (
 // TsvLine describes the line's details from a TSV
 type TsvLine struct {
 	Comparables []string
-	Offset      int64
-	Limit       int
+	Offset      uint64
+	Limit       uint32
 }
 type tsvLines []TsvLine
 
 // Internal use
 type seeker struct {
 	sc     *Scanner
-	offset int64
+	offset uint64
 }
 
 // TsvIndexer contains all stuff for indexing columns from a TSV
@@ -76,16 +76,12 @@ func (ti *TsvIndexer) Analyze() error {
 		ti.tsvLineAppender(ti.parser.Row(), ti.parser.Line(), ti.parser.Offset(), ti.parser.Limit())
 	}
 	ti.parser.Reset()
-
-	ti.createSeekers(len(ti.Lines), func(index int) int64 {
-		return ti.Lines[index].Offset
-	}) // For transfer part
+	ti.createSeekers()
 	return nil
 }
 
 // Sort sorts TsvLine on its comparables
 func (ti *TsvIndexer) Sort() {
-
 	sort.Sort(ti.Lines)
 }
 
@@ -95,7 +91,7 @@ func (ti *TsvIndexer) Transfer(output io.Writer) error {
 
 	// For all sorted lines contained in the TSV
 	for _, line := range ti.Lines {
-		token, err := ti.selectSeeker(line.Offset).sc.ReadAt(line.Offset, line.Limit) // Reads the current line
+		token, err := ti.selectSeeker(line.Offset).sc.ReadAt(int64(line.Offset), int(line.Limit)) // Reads the current line
 		if err != nil {
 			return err
 		}
@@ -135,7 +131,8 @@ func (slice tsvLines) Swap(i, j int) {
 // ------------------ //
 
 // createSeekers creates seekers for increase the speed of random accesses of the read file
-func (ti *TsvIndexer) createSeekers(nol int, offset func(int) int64) {
+func (ti *TsvIndexer) createSeekers() {
+	nol := len(ti.Lines)
 	if nol < ti.LineThreshold {
 		return
 	}
@@ -145,12 +142,12 @@ func (ti *TsvIndexer) createSeekers(nol int, offset func(int) int64) {
 	lineIndex := 0
 	for i := 0; i < nbOfThresholds; i++ {
 		lineIndex += lineOffset
-		ti.appendSeeker(offset(lineIndex))
+		ti.appendSeeker(ti.Lines[lineIndex].Offset)
 	}
 }
 
 // appendSeeker appends a new seeker based on the given offset. Seekers must be appened ordering by the offset
-func (ti *TsvIndexer) appendSeeker(offset int64) {
+func (ti *TsvIndexer) appendSeeker(offset uint64) {
 	sc := ti.scannerFunc()
 	ti.seekers = append(ti.seekers, seeker{sc, offset})
 }
@@ -170,7 +167,7 @@ func (ti *TsvIndexer) releaseSeekers() {
 //    s3 -> offset 7,500,000
 // offset 666 returns seeker s0
 // offset 9,999,999 returns seeker s3
-func (ti *TsvIndexer) selectSeeker(offset int64) seeker {
+func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 	for i, seeker := range ti.seekers {
 		if seeker.offset > offset {
 			return ti.seekers[i-1]
@@ -183,7 +180,7 @@ func (ti *TsvIndexer) selectSeeker(offset int64) seeker {
 // Analyze stuff      //
 // ------------------ //
 
-func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset int64, limit int) error {
+func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
 	ti.Lines = append(ti.Lines, TsvLine{[]string{}, offset, limit})
 	if index == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {

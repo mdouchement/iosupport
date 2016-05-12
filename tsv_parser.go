@@ -21,9 +21,9 @@ type TsvParser struct {
 	sc        *Scanner // directly embedded in TsvParser?
 	Separator []byte
 	QuoteChar byte
-	line      int   // move in Scanner
-	offset    int64 // move in Scanner
-	limit     int   // move in Scanner
+	line      int    // move in Scanner
+	offset    uint64 // move in Scanner
+	limit     uint32 // move in Scanner
 	row       [][]byte
 	err       error
 }
@@ -51,12 +51,12 @@ func (tp *TsvParser) Line() int {
 }
 
 // Offset return the byte offset of the current line (unparsed row)
-func (tp *TsvParser) Offset() int64 {
+func (tp *TsvParser) Offset() uint64 {
 	return tp.offset
 }
 
 // Limit return the byte length of the current line (unparsed row)
-func (tp *TsvParser) Limit() int {
+func (tp *TsvParser) Limit() uint32 {
 	return tp.limit
 }
 
@@ -76,7 +76,7 @@ func (tp *TsvParser) Reset() {
 
 // ScanRow advances the TSV parser to the next row
 func (tp *TsvParser) ScanRow() bool {
-	tp.offset += int64(tp.limit)
+	tp.offset += uint64(tp.limit)
 
 	b := tp.sc.ScanLine()
 	if tp.sc.Err() != nil {
@@ -87,7 +87,7 @@ func (tp *TsvParser) ScanRow() bool {
 	}
 
 	if b {
-		tp.limit = len(tp.sc.Bytes())
+		tp.limit = uint32(len(tp.sc.Bytes()))
 		tp.line++
 
 		tp.row = tp.parseFields()
