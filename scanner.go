@@ -172,7 +172,7 @@ func (s *Scanner) IsLineEmpty() bool {
 	return len(s.token) == 0
 }
 
-// Reset seek to top of file ans clean buffer
+// Reset seek to top of file and clean buffer
 func (s *Scanner) Reset() {
 	s.f.Seek(0, 0)
 	s.line = -1
