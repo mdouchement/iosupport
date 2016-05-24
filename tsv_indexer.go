@@ -3,7 +3,6 @@ package iosupport
 import (
 	"bufio"
 	"errors"
-	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -86,7 +85,7 @@ func (ti *TsvIndexer) Sort() {
 }
 
 // Transfer writes sorted TSV into a new file
-func (ti *TsvIndexer) Transfer(output io.Writer) error {
+func (ti *TsvIndexer) Transfer(output FileWriter) error {
 	w := bufio.NewWriter(output)
 
 	// For all sorted lines contained in the TSV
@@ -181,7 +180,7 @@ func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 // ------------------ //
 
 func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
-	ti.Lines = append(ti.Lines, TsvLine{[]string{}, offset, limit})
+	ti.Lines = append(ti.Lines, TsvLine{make([]string, len(ti.Fields), len(ti.Fields)), offset, limit})
 	if index == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
 			return err
