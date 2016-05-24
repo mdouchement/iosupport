@@ -40,13 +40,26 @@ func TestScannerBytes(t *testing.T) {
 
 	sc := iosupport.NewScanner(file)
 	lines := strings.Split(data, "\n")
+	offsets := []uint64{0, 16, 35, 36}
+	limits := []uint32{16, 19, 1, 1}
 
-	for _, bts := range []string(lines) {
+	for i, bts := range []string(lines) {
 		sc.ScanLine()
 		expected := []byte(bts)
 		actual := sc.Bytes()
+		t.Logf("expected: %v", expected)
+		t.Logf("actual:   %v", actual)
 		if !bytes.Equal(actual, expected) {
-			t.Errorf("Expected '%v' but got '%v'", expected, actual)
+			t.Errorf("Expected '%v' but got '%v' at index %d", expected, actual, i)
+		}
+		if sc.Offset() != offsets[i] {
+			t.Errorf("Expected offset '%v' but got '%v' at index %d", offsets[i], sc.Offset(), i)
+		}
+		if sc.Limit() != limits[i] {
+			t.Errorf("Expected limit '%v' but got '%v' at index %d", limits[i], sc.Limit(), i)
+		}
+		if sc.Line() != i {
+			t.Errorf("Expected line index '%v' but got '%v' at index %d", i, sc.Line(), i)
 		}
 	}
 }

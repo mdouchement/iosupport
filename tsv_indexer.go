@@ -72,7 +72,10 @@ func (ti *TsvIndexer) Analyze() error {
 		if ti.parser.Err() != nil {
 			return ti.parser.Err()
 		}
-		ti.tsvLineAppender(ti.parser.Row(), ti.parser.Line(), ti.parser.Offset(), ti.parser.Limit())
+		err := ti.tsvLineAppender(ti.parser.Row(), ti.parser.Line(), ti.parser.Offset(), ti.parser.Limit())
+		if err != nil {
+			return err
+		}
 	}
 	ti.parser.Reset()
 	ti.createSeekers()
@@ -180,7 +183,7 @@ func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 // ------------------ //
 
 func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
-	ti.Lines = append(ti.Lines, TsvLine{make([]string, len(ti.Fields), len(ti.Fields)), offset, limit})
+	ti.Lines = append(ti.Lines, TsvLine{make([]string, 0, len(ti.Fields)), offset, limit})
 	if index == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
 			return err
