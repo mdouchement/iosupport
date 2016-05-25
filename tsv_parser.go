@@ -28,7 +28,6 @@ type TsvParser struct {
 // NewTsvParser inatanciates a new TsvParser
 func NewTsvParser(sc *Scanner, separator byte) *TsvParser {
 	sc.Reset()
-	// sc.KeepNewlineSequence(true)
 	return &TsvParser{
 		Scanner:   sc,
 		Separator: []byte{separator},

@@ -82,17 +82,17 @@ func (s *Scanner) Err() error {
 	return s.err
 }
 
-// Line return the index of the current line (unparsed row)
+// Line return the index of the current line
 func (s *Scanner) Line() int {
 	return s.line
 }
 
-// Offset return the byte offset of the current line (unparsed row)
+// Offset return the byte offset of the current line
 func (s *Scanner) Offset() uint64 {
 	return s.offset
 }
 
-// Limit return the byte length of the current line (unparsed row)
+// Limit return the byte length of the current line including newline sequence
 func (s *Scanner) Limit() uint32 {
 	return s.limit
 }
