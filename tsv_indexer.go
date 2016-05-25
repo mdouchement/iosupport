@@ -24,7 +24,7 @@ type seeker struct {
 
 // TsvIndexer contains all stuff for indexing columns from a TSV
 type TsvIndexer struct {
-	parser        *TsvParser // directly embedded in TsvParser?
+	parser        *TsvParser
 	Header        bool
 	Separator     byte
 	Fields        []string
@@ -54,7 +54,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, f
 
 // CloseIO closes all opened IO
 func (ti *TsvIndexer) CloseIO() {
-	ti.parser.sc.f.Close()
+	ti.parser.Scanner.f.Close()
 	ti.releaseSeekers()
 }
 

@@ -18,8 +18,8 @@ func TrimNewline(line []byte) []byte {
 
 // A TsvParser reads records from a TSV-encoded file.
 type TsvParser struct {
-	sc        *Scanner // directly embedded in TsvParser?
-	err       error    // Sticky error.
+	*Scanner
+	err       error // Sticky error.
 	Separator []byte
 	QuoteChar byte
 	row       [][]byte
@@ -30,7 +30,7 @@ func NewTsvParser(sc *Scanner, separator byte) *TsvParser {
 	sc.Reset()
 	// sc.KeepNewlineSequence(true)
 	return &TsvParser{
-		sc:        sc,
+		Scanner:   sc,
 		Separator: []byte{separator},
 		QuoteChar: '"',
 	}
@@ -41,21 +41,6 @@ func (tp *TsvParser) Err() error {
 	return tp.err
 }
 
-// Line return the index of the current line (unparsed row)
-func (tp *TsvParser) Line() int {
-	return tp.sc.Line()
-}
-
-// Offset return the byte offset of the current line (unparsed row)
-func (tp *TsvParser) Offset() uint64 {
-	return tp.sc.Offset()
-}
-
-// Limit return the byte length of the current line (unparsed row)
-func (tp *TsvParser) Limit() uint32 {
-	return tp.sc.Limit()
-}
-
 // Row returns a slice of []byte with each []byte representing one field
 func (tp *TsvParser) Row() [][]byte {
 	return tp.row
@@ -63,18 +48,16 @@ func (tp *TsvParser) Row() [][]byte {
 
 // Reset resets parser and its underliying scanner. It freeing the memory
 func (tp *TsvParser) Reset() {
-	tp.sc.Reset()
+	tp.Scanner.Reset()
 	tp.row = make([][]byte, 0)
 }
 
 // ScanRow advances the TSV parser to the next row
 func (tp *TsvParser) ScanRow() bool {
-	b := tp.sc.ScanLine()
-	if tp.sc.Err() != nil {
-		if tp.sc.Err() != nil {
-			tp.err = tp.sc.Err()
-			b = !tp.sc.IsLineEmpty()
-		}
+	b := tp.ScanLine()
+	if tp.Scanner.Err() != nil {
+		tp.err = tp.Scanner.Err()
+		b = !tp.IsLineEmpty()
 	}
 
 	if b {
@@ -86,5 +69,5 @@ func (tp *TsvParser) ScanRow() bool {
 
 // Simple fields parser
 func (tp *TsvParser) parseFields() [][]byte {
-	return bytes.Split(TrimNewline(tp.sc.Bytes()), tp.Separator)
+	return bytes.Split(TrimNewline(tp.Bytes()), tp.Separator)
 }
