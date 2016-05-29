@@ -41,19 +41,23 @@ var flags = []cli.Flag{
 	},
 	cli.StringFlag{
 		Name:  "s, separator",
-		Usage: "The TSV delimiter",
+		Usage: "Dataset delimiter",
 	},
 	cli.BoolFlag{
 		Name:  "H, header",
-		Usage: "The TSV has an header",
+		Usage: "Dataset has an header",
+	},
+	cli.StringFlag{
+		Name:  "u, hadoop-user",
+		Usage: "Hadoop user (can use HADOOP_USER_NAME environment variable)",
 	},
 	cli.StringFlag{
 		Name:  "i, input",
-		Usage: "Input TSV path",
+		Usage: "Input Dataset path",
 	},
 	cli.StringFlag{
 		Name:  "o, output",
-		Usage: "Output TSV path",
+		Usage: "Output Dataset path",
 	},
 }
 
@@ -63,6 +67,10 @@ func action(context *cli.Context) error {
 	separator := context.String("s")
 	fields := strings.Split(context.String("f"), ",")
 	outputPath := context.String("o")
+
+	if user := context.String("u"); user != "" {
+		os.Setenv("HADOOP_USER_NAME", user)
+	}
 
 	start := time.Now()
 

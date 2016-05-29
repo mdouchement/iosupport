@@ -6,6 +6,9 @@ import (
 
 // UnescapeSeparator cleans composed separator like \t
 func UnescapeSeparator(separator string) byte {
+	if separator == "\\t" {
+		separator = "\t"
+	}
 	return []byte(separator)[0]
 }
 
