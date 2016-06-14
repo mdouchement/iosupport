@@ -30,7 +30,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		fail(err)
+		panic(err)
 	}
 }
 
@@ -68,6 +68,11 @@ func action(context *cli.Context) error {
 	fields := strings.Split(context.String("f"), ",")
 	outputPath := context.String("o")
 
+	if inputPath == "" || separator == "" || context.String("f") == "" || outputPath == "" {
+		defer cli.ShowAppHelp(context)
+		panic(fmt.Errorf("Invalid command line"))
+	}
+
 	if user := context.String("u"); user != "" {
 		os.Setenv("HADOOP_USER_NAME", user)
 	}
@@ -79,7 +84,7 @@ func action(context *cli.Context) error {
 	sc := func() *iosupport.Scanner {
 		file, err := open(inputPath)
 		if err != nil {
-			fail(fmt.Errorf("Scanner: %v", err))
+			panic(fmt.Errorf("Scanner: %v", err))
 		}
 		return iosupport.NewScanner(file)
 	}
@@ -93,7 +98,7 @@ func action(context *cli.Context) error {
 	astart := time.Now()
 	err := indexer.Analyze()
 	if err != nil {
-		fail(fmt.Errorf("Analyze: %v", err))
+		panic(fmt.Errorf("Analyze: %v", err))
 	}
 	elapsed = time.Since(astart)
 	fmt.Printf("Analyze took %s\n\n", elapsed)
@@ -107,13 +112,13 @@ func action(context *cli.Context) error {
 	fmt.Println("Transfering...")
 	ofile, err := create(outputPath)
 	if err != nil {
-		fail(err)
+		panic(err)
 	}
 	defer ofile.Close()
 	tstart := time.Now()
 	err = indexer.Transfer(ofile)
 	if err != nil {
-		fail(fmt.Errorf("Transfer: %v", err))
+		panic(fmt.Errorf("Transfer: %v", err))
 	}
 	elapsed = time.Since(tstart)
 	fmt.Printf("Transfer took %s\n\n", elapsed)
@@ -122,8 +127,4 @@ func action(context *cli.Context) error {
 	fmt.Printf("Total time %s\n", elapsed)
 
 	return nil
-}
-
-func fail(err error) {
-	panic(err)
 }
