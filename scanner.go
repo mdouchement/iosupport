@@ -41,6 +41,9 @@ type Scanner struct {
 	keepnls bool          // Keep the newline sequence in returned strings
 	token   []byte        // Last token returned by split (scan).
 	err     error         // Sticky error.
+	line    int           // index of current read line
+	offset  uint64        // Offset of the start of the read line
+	limit   uint32        // Length of the read line including newline sequence
 }
 
 // NewScanner instanciates a Scanner
@@ -49,6 +52,7 @@ func NewScanner(f FileReader) *Scanner {
 		f:       f,
 		r:       bufio.NewReader(f),
 		keepnls: false,
+		line:    -1,
 	}
 }
 
@@ -78,6 +82,21 @@ func (s *Scanner) Err() error {
 	return s.err
 }
 
+// Line return the index of the current line
+func (s *Scanner) Line() int {
+	return s.line
+}
+
+// Offset return the byte offset of the current line
+func (s *Scanner) Offset() uint64 {
+	return s.offset
+}
+
+// Limit return the byte length of the current line including newline sequence
+func (s *Scanner) Limit() uint32 {
+	return s.limit
+}
+
 // ScanLine advances the Scanner to the next line), which will then be
 // available through the Bytes or Text method. It returns false when the
 // scan stops, either by reaching the end of the input or an error.
@@ -87,6 +106,8 @@ func (s *Scanner) Err() error {
 func (s *Scanner) ScanLine() bool {
 	// Override token value to new bytes array
 	s.token = make([]byte, 0)
+	s.offset += uint64(s.limit)
+	s.line++
 
 	// Loop until we have a token.
 	for {
@@ -151,15 +172,22 @@ func (s *Scanner) IsLineEmpty() bool {
 	return len(s.token) == 0
 }
 
-// Reset seek to top of file
+// Reset seek to top of file and clean buffer
 func (s *Scanner) Reset() {
 	s.f.Seek(0, 0)
+	s.line = -1
+	s.limit = 0
+	s.offset = 0
+	s.token = []byte{}
 }
 
 func (s *Scanner) handleNewLineSequence(currentNl, nextNl byte) {
 	if s.keepnls {
 		// Keep current newline character (relative to the seek)
 		s.token = append(s.token, currentNl)
+		s.limit = uint32(len(s.token))
+	} else {
+		s.limit = uint32(len(s.token) + 1)
 	}
 
 	for {
@@ -173,10 +201,13 @@ func (s *Scanner) handleNewLineSequence(currentNl, nextNl byte) {
 			if s.keepnls {
 				// Keep next newline character (relative to the currentNl)
 				s.token = append(s.token, nextNl)
+				s.limit = uint32(len(s.token))
+			} else {
+				s.limit++
 			}
 			s.r.ReadByte()
-		} else {
 			return
 		}
+		return
 	}
 }

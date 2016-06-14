@@ -23,11 +23,13 @@ func TestTsvIndexerAnalyze(t *testing.T) {
 	actual.Analyze()
 
 	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines: %v", actual.Lines)
+	t.Logf("actual.Lines:   %v", actual.Lines)
 	for i, expectedLine := range expected.Lines {
-
-		if actual.Lines[i].Index != expectedLine.Index {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Index, actual.Lines[i].Index, i)
+		if actual.Lines[i].Offset != expectedLine.Offset {
+			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
+		}
+		if actual.Lines[i].Limit != expectedLine.Limit {
+			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
 		}
 
 		for j, exepectedComparable := range expectedLine.Comparables {
@@ -56,15 +58,11 @@ func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
 	}
 
 	expected.Fields = tsvIndexerInputFieldsWithoutHeader
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{0, []string{"val2"}, 0, 0}, iosupport.TsvLine{1, []string{"val5"}, 0, 0}, iosupport.TsvLine{2, []string{"val8"}, 0, 0}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{[]string{"val2"}, 0, 0}, iosupport.TsvLine{[]string{"val5"}, 0, 0}, iosupport.TsvLine{[]string{"val8"}, 0, 0}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines: %v", actual.Lines)
+	t.Logf("actual.Lines:   %v", actual.Lines)
 	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Index != expectedLine.Index {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Index, actual.Lines[i].Index, i)
-		}
-
 		for j, exepectedComparable := range expectedLine.Comparables {
 			if actual.Lines[i].Comparables[j] != exepectedComparable {
 				t.Errorf("Expected '%v' but got '%v' at index %v", exepectedComparable, actual.Lines[i].Comparables[j], i)
@@ -112,18 +110,15 @@ func TestTsvSort(t *testing.T) {
 	file, actual, expected := prepareTsvIndexer(tsvIndexerInput)
 	defer file.Close()
 
-	actual.Analyze()
+	err := actual.Analyze()
+	check(err)
 	actual.Sort()
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{0, []string{"", ""}, 0, 9}, iosupport.TsvLine{2, []string{"val2", "val40"}, 16, 15}, iosupport.TsvLine{1, []string{"val2", "val45"}, 10, 15}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{[]string{"", ""}, 0, 9}, iosupport.TsvLine{[]string{"val2", "val40"}, 25, 16}, iosupport.TsvLine{[]string{"val2", "val45"}, 9, 16}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines: %v", actual.Lines)
+	t.Logf("actual.Lines:   %v", actual.Lines)
 	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Index != expectedLine.Index {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Index, actual.Lines[i].Index, i)
-		}
-
 		for j, expectedComparable := range expectedLine.Comparables {
 			if actual.Lines[i].Comparables[j] != expectedComparable {
 				t.Errorf("Expected '%v' but got '%v' at index %v", expectedComparable, actual.Lines[i].Comparables[j], i)
@@ -169,10 +164,9 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 	actual = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
 
 	expected = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
-	expected.I = iosupport.NewIndexer(sc())
-	expected.I.NbOfLines = 3
-	// expected.I.Lines = []iosupport.Line{iosupport.Line{0, 0, 9}, iosupport.Line{1, 10, 15}, iosupport.Line{2, 16, 15}}
+	// expected.I = iosupport.NewIndexer(sc())
+	// expected.I.NbOfLines = 3
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{0, []string{"", ""}, 0, 9}, iosupport.TsvLine{1, []string{"val2", "val45"}, 10, 15}, iosupport.TsvLine{2, []string{"val2", "val40"}, 16, 15}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{[]string{"", ""}, 0, 9}, iosupport.TsvLine{[]string{"val2", "val45"}, 9, 16}, iosupport.TsvLine{[]string{"val2", "val40"}, 25, 16}}
 	return
 }

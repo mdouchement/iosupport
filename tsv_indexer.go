@@ -3,45 +3,30 @@ package iosupport
 import (
 	"bufio"
 	"errors"
-	"io"
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 )
-
-// UnescapeSeparator cleans composed separator like \t
-func UnescapeSeparator(separator string) string {
-	return strings.Replace(separator, "\\t", string([]rune{9}), -1) // String with '\t' rune
-}
-
-// TrimNewline removes newline characters at the end of line
-func TrimNewline(line string) string {
-	line = strings.TrimRight(line, "\n")
-	line = strings.TrimRight(line, "\r")
-	return strings.TrimRight(line, "\n")
-}
 
 // TsvLine describes the line's details from a TSV
 type TsvLine struct {
-	Index       int
 	Comparables []string
-	Offset      int64
-	Limit       int
+	Offset      uint64
+	Limit       uint32
 }
 type tsvLines []TsvLine
 
 // Internal use
 type seeker struct {
 	sc     *Scanner
-	offset int64
+	offset uint64
 }
 
 // TsvIndexer contains all stuff for indexing columns from a TSV
 type TsvIndexer struct {
-	I             *Indexer
+	parser        *TsvParser
 	Header        bool
-	Separator     string
+	Separator     byte
 	Fields        []string
 	FieldsIndex   map[string]int
 	Lines         tsvLines
@@ -56,7 +41,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, f
 	sc.Reset()
 	sc.KeepNewlineSequence(true)
 	return &TsvIndexer{
-		I:             NewIndexer(sc),
+		parser:        NewTsvParser(sc, UnescapeSeparator(separator)),
 		Header:        header,
 		Separator:     UnescapeSeparator(separator),
 		Fields:        fields,
@@ -69,7 +54,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, f
 
 // CloseIO closes all opened IO
 func (ti *TsvIndexer) CloseIO() {
-	ti.I.sc.f.Close()
+	ti.parser.Scanner.f.Close()
 	ti.releaseSeekers()
 }
 
@@ -83,12 +68,17 @@ func (ti *TsvIndexer) Analyze() error {
 			}
 		}
 	}
-	if err := ti.I.Analyze(ti.tsvLineAppender); err != nil {
-		return err
+	for ti.parser.ScanRow() {
+		if ti.parser.Err() != nil {
+			return ti.parser.Err()
+		}
+		err := ti.tsvLineAppender(ti.parser.Row(), ti.parser.Line(), ti.parser.Offset(), ti.parser.Limit())
+		if err != nil {
+			return err
+		}
 	}
-	ti.createSeekers(len(ti.Lines), func(index int) int64 {
-		return ti.Lines[index].Offset
-	}) // For transfer part
+	ti.parser.Reset()
+	ti.createSeekers()
 	return nil
 }
 
@@ -98,12 +88,12 @@ func (ti *TsvIndexer) Sort() {
 }
 
 // Transfer writes sorted TSV into a new file
-func (ti *TsvIndexer) Transfer(output io.Writer) error {
+func (ti *TsvIndexer) Transfer(output FileWriter) error {
 	w := bufio.NewWriter(output)
 
 	// For all sorted lines contained in the TSV
 	for _, line := range ti.Lines {
-		token, err := ti.selectSeeker(line.Offset).sc.ReadAt(line.Offset, line.Limit) // Reads the current line
+		token, err := ti.selectSeeker(line.Offset).sc.ReadAt(int64(line.Offset), int(line.Limit)) // Reads the current line
 		if err != nil {
 			return err
 		}
@@ -143,7 +133,8 @@ func (slice tsvLines) Swap(i, j int) {
 // ------------------ //
 
 // createSeekers creates seekers for increase the speed of random accesses of the read file
-func (ti *TsvIndexer) createSeekers(nol int, offset func(int) int64) {
+func (ti *TsvIndexer) createSeekers() {
+	nol := len(ti.Lines)
 	if nol < ti.LineThreshold {
 		return
 	}
@@ -153,12 +144,12 @@ func (ti *TsvIndexer) createSeekers(nol int, offset func(int) int64) {
 	lineIndex := 0
 	for i := 0; i < nbOfThresholds; i++ {
 		lineIndex += lineOffset
-		ti.appendSeeker(offset(lineIndex))
+		ti.appendSeeker(ti.Lines[lineIndex].Offset)
 	}
 }
 
 // appendSeeker appends a new seeker based on the given offset. Seekers must be appened ordering by the offset
-func (ti *TsvIndexer) appendSeeker(offset int64) {
+func (ti *TsvIndexer) appendSeeker(offset uint64) {
 	sc := ti.scannerFunc()
 	ti.seekers = append(ti.seekers, seeker{sc, offset})
 }
@@ -178,7 +169,7 @@ func (ti *TsvIndexer) releaseSeekers() {
 //    s3 -> offset 7,500,000
 // offset 666 returns seeker s0
 // offset 9,999,999 returns seeker s3
-func (ti *TsvIndexer) selectSeeker(offset int64) seeker {
+func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 	for i, seeker := range ti.seekers {
 		if seeker.offset > offset {
 			return ti.seekers[i-1]
@@ -191,26 +182,16 @@ func (ti *TsvIndexer) selectSeeker(offset int64) seeker {
 // Analyze stuff      //
 // ------------------ //
 
-type appenderBuffer struct {
-	str        string
-	row        []string
-	fieldIndex int
-}
-
-var buf appenderBuffer
-
-func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limit int) error {
-	buf.str = TrimNewline(string(line))
-	buf.row = strings.Split(buf.str, ti.Separator)
-	ti.Lines = append(ti.Lines, TsvLine{index, []string{}, offset, limit})
+func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
+	ti.Lines = append(ti.Lines, TsvLine{make([]string, 0, len(ti.Fields)), offset, limit})
 	if index == 0 && ti.Header {
-		if err := ti.findFieldsIndex(buf.row); err != nil {
+		if err := ti.findFieldsIndex(row); err != nil {
 			return err
 		}
 		// Build empty comparable
 		// When comparables are sorted, this one (the header) remains the first line
 		for i := 0; i < len(ti.Fields); i++ {
-			ti.appendComparable("", index)
+			ti.appendComparable([]byte{}, index)
 		}
 	} else if index == 0 {
 		// Without header, fields are named like the following pattern /var\d+/
@@ -224,30 +205,27 @@ func (ti *TsvIndexer) tsvLineAppender(line []byte, index int, offset int64, limi
 				return err
 			}
 			ti.FieldsIndex[field] = i - 1
-			ti.appendComparable(buf.row[i-1], index) // The first row contains data (/!\ it is not an header)
+			ti.appendComparable(row[i-1], index) // The first row contains data (/!\ it is not an header)
 		}
 	} else {
 		for _, field := range ti.Fields {
-			buf.fieldIndex = ti.FieldsIndex[field]
-			ti.appendComparable(buf.row[buf.fieldIndex], index)
+			ti.appendComparable(row[ti.FieldsIndex[field]], index)
 		}
 	}
-	buf.str = ""
-	buf.row = nil
 	return nil
 }
 
-func (ti *TsvIndexer) appendComparable(comparable string, index int) {
-	cp := make([]byte, len(comparable))
+func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
+	cp := make([]byte, len(comparable), len(comparable))
 	copy(cp, comparable) // Freeing the underlying array (https://blog.golang.org/go-slices-usage-and-internals - chapter: A possible "gotcha")
 	ti.Lines[index].Comparables = append(ti.Lines[index].Comparables, string(cp))
 }
 
 // Append to TsvIndexer.FieldsIndex the index in the row of all TsvIndexer.Fields
-func (ti *TsvIndexer) findFieldsIndex(row []string) error {
+func (ti *TsvIndexer) findFieldsIndex(row [][]byte) error {
 	for i, head := range row {
 		for _, field := range ti.Fields {
-			if head == field {
+			if string(head) == field {
 				ti.FieldsIndex[field] = i
 				break
 			}

@@ -11,3 +11,10 @@ type FileReader interface {
 
 	io.Reader
 }
+
+// FileWriter is an interface for supported File by Scanner
+type FileWriter interface {
+	Close() error
+
+	io.Writer
+}
