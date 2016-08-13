@@ -10,9 +10,9 @@ import (
 
 // TsvLine describes the line's details from a TSV
 type TsvLine struct {
-	Comparables []string
-	Offset      uint64
-	Limit       uint32
+	Comparable string
+	Offset     uint64
+	Limit      uint32
 }
 type tsvLines []TsvLine
 
@@ -117,11 +117,7 @@ func (slice tsvLines) Len() int {
 }
 
 func (slice tsvLines) Less(i, j int) bool {
-	b := false
-	for x, comparable := range slice[i].Comparables {
-		b = b || comparable < slice[j].Comparables[x]
-	}
-	return b
+	return slice[i].Comparable < slice[j].Comparable
 }
 
 func (slice tsvLines) Swap(i, j int) {
@@ -183,7 +179,7 @@ func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 // ------------------ //
 
 func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
-	ti.Lines = append(ti.Lines, TsvLine{make([]string, 0, len(ti.Fields)), offset, limit})
+	ti.Lines = append(ti.Lines, TsvLine{"", offset, limit})
 	if index == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
 			return err
@@ -215,10 +211,11 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 	return nil
 }
 
+// It concats the given comparable to the existing comparable
 func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
 	cp := make([]byte, len(comparable), len(comparable))
 	copy(cp, comparable) // Freeing the underlying array (https://blog.golang.org/go-slices-usage-and-internals - chapter: A possible "gotcha")
-	ti.Lines[index].Comparables = append(ti.Lines[index].Comparables, string(cp))
+	ti.Lines[index].Comparable += string(cp)
 }
 
 // Append to TsvIndexer.FieldsIndex the index in the row of all TsvIndexer.Fields
