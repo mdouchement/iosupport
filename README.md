@@ -1,7 +1,12 @@
 # iosupport
 [![Build Status](https://travis-ci.org/mdouchement/iosupport.svg?branch=master)](https://travis-ci.org/mdouchement/iosupport)
 
-It provides some io supports for GoLang.
+It provides some io supports for GoLang:
+- Read large files (line length and large amount of lines)
+- Parse CSV files according the RFC4180, but:
+  - It does not support `\r\n` in quoted field
+  - It does not support comment
+- Sort CSV on one or several columns
 
 ## Usage
 
