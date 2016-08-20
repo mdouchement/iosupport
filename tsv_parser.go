@@ -56,6 +56,8 @@ type TsvParser struct {
 	QuoteChar  byte
 	LazyQuotes bool // allow lazy quotes
 	row        [][]byte
+	separator  []byte // for internal purpose (see parseFields function)
+	quoteChar  []byte // for internal purpose (see parseFields function)
 }
 
 // NewTsvParser inatanciates a new TsvParser
@@ -65,7 +67,15 @@ func NewTsvParser(sc *Scanner, separator byte) *TsvParser {
 		Scanner:   sc,
 		Separator: separator,
 		QuoteChar: '"',
+		separator: []byte{separator},
+		quoteChar: []byte{'"'},
 	}
+}
+
+// SyncConfig synchronizes the internal configuration to the Separator and QuoteChar attributes.
+func (tp *TsvParser) SyncConfig() {
+	tp.separator = []byte{tp.Separator}
+	tp.quoteChar = []byte{tp.QuoteChar}
 }
 
 // error creates a new ParseError based on err.
@@ -110,6 +120,11 @@ func (tp *TsvParser) ScanRow() bool {
 
 // Simple fields parser
 func (tp *TsvParser) parseFields() [][]byte {
+	if !bytes.Contains(tp.Bytes(), tp.quoteChar) {
+		// unquoted line
+		return bytes.Split(TrimNewline(tp.Bytes()), tp.separator)
+	}
+	// quoted line
 	fields := [][]byte{}
 	r := newReader(tp.Bytes())
 	field := tp.parseField(r)

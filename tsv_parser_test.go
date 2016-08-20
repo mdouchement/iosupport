@@ -97,3 +97,29 @@ func BenchmarkParseFields(b *testing.B) {
 		iosupport.ParseFields(tp)
 	}
 }
+
+func BenchmarkParseFieldsWithQuotes(b *testing.B) {
+	path := generateTmpFile(tsvIndexerInput)
+	file, err := os.Open(path)
+	check(err)
+	sc := iosupport.NewScanner(file)
+
+	tp := iosupport.NewTsvParser(sc, ',')
+	iosupport.SetToken(tp, []byte(`c1,c2,c3,c4,c5,c6,"c,7",c8,c9,10`))
+	for i := 0; i < b.N; i++ {
+		iosupport.ParseFields(tp)
+	}
+}
+
+func BenchmarkParseFieldsWithDoubleQuotes(b *testing.B) {
+	path := generateTmpFile(tsvIndexerInput)
+	file, err := os.Open(path)
+	check(err)
+	sc := iosupport.NewScanner(file)
+
+	tp := iosupport.NewTsvParser(sc, ',')
+	iosupport.SetToken(tp, []byte(`c1,c2,c3,c4,c5,c6,"c ""is"" 7",c8,c9,10`))
+	for i := 0; i < b.N; i++ {
+		iosupport.ParseFields(tp)
+	}
+}
