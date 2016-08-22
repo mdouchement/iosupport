@@ -13,7 +13,13 @@ val45,val2,val3
 val40,"val42 ""the"" best",val6
 `
 
-var tsvParserErrQuote = map[int]string{6: `c1,"c"2",c3`, 9: `c1,c2,"c3`}
+var tsvParserErrQuote = []struct {
+	col int
+	row string
+}{
+	{6, `c1,"c"2",c3`},
+	{9, `c1,c2,"c3`},
+}
 var tsvParserErrBareQuote = `c1,c2",c3`
 
 func TestTsvParser(t *testing.T) {
@@ -56,14 +62,14 @@ func TestTsvParser(t *testing.T) {
 }
 
 func TestTsvParserErrQuote(t *testing.T) {
-	for col, in := range tsvParserErrQuote {
-		path := generateTmpFile(in)
+	for _, input := range tsvParserErrQuote {
+		path := generateTmpFile(input.row)
 		file, err := os.Open(path)
 		check(err)
 		sc := iosupport.NewScanner(file)
 		parser := iosupport.NewTsvParser(sc, ',')
 
-		expected := fmt.Sprintf("line 0, column %d: %s", col, iosupport.ErrQuote)
+		expected := fmt.Sprintf("line 0, column %d: %s", input.col, iosupport.ErrQuote)
 		parser.ScanRow()
 		if parser.Err().Error() != expected {
 			t.Errorf("Expected '%v' but got '%v'", expected, parser.Err())
@@ -106,6 +112,32 @@ func BenchmarkParseFieldsWithQuotes(b *testing.B) {
 
 	tp := iosupport.NewTsvParser(sc, ',')
 	iosupport.SetToken(tp, []byte(`c1,c2,c3,c4,c5,c6,"c,7",c8,c9,10`))
+	for i := 0; i < b.N; i++ {
+		iosupport.ParseFields(tp)
+	}
+}
+
+func BenchmarkParseFieldsWithQuotesAndLongFields(b *testing.B) {
+	path := generateTmpFile(tsvIndexerInput)
+	file, err := os.Open(path)
+	check(err)
+	sc := iosupport.NewScanner(file)
+
+	tp := iosupport.NewTsvParser(sc, ',')
+	iosupport.SetToken(tp, []byte(`c1cccsfdergvergtv,cerfrwtgertgerygertg2,"c,7",c8`))
+	for i := 0; i < b.N; i++ {
+		iosupport.ParseFields(tp)
+	}
+}
+
+func BenchmarkParseFieldsWithQuotesAndLongQuotedFields(b *testing.B) {
+	path := generateTmpFile(tsvIndexerInput)
+	file, err := os.Open(path)
+	check(err)
+	sc := iosupport.NewScanner(file)
+
+	tp := iosupport.NewTsvParser(sc, ',')
+	iosupport.SetToken(tp, []byte(`"c1cccsfdergvergtv","cerfrwtgertgerygertg2","c,7",c8`))
 	for i := 0; i < b.N; i++ {
 		iosupport.ParseFields(tp)
 	}

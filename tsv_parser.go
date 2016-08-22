@@ -146,6 +146,18 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 	switch b {
 	case tp.QuoteChar:
 		// quoted field
+
+		// Fast implementation when the field is basic (e.g `...,"col 1",...')
+		si := r.indexOf(tp.Separator)
+		qci := r.indexOf(tp.QuoteChar)
+		if qci < si && qci+1 == si {
+			// qci < si -> there is no separator occurrence until the end of the field
+			// qci+1 == si -> end of quoted field detection
+			field.Write(r.readBytesTo(si))
+			return field.Bytes()
+		}
+
+		// Slow implementation when the quoted field is more complex (e.g `...,"col ""is"" 1",...')
 		for {
 			b, ok = r.readByte()
 			if !ok {
@@ -179,6 +191,22 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 		}
 	default:
 		// unquoted field
+
+		// Fast implementation when the field does not contain a double-quote (e.g `..,col1,..')
+		si := r.indexOf(tp.Separator)
+		qci := r.indexOf(tp.QuoteChar)
+		if qci == -1 || si < qci {
+			// qci == -1 -> no longer quote char in last part of the row
+			// si < qsi -> there is no quote char until the next separator
+			field.WriteByte(b)
+			field.Write(r.readBytesTo(si))
+			return field.Bytes()
+		}
+
+		// At this point, a quote char is present in the current unquoted field (e.g `col"5')
+		// So we will parse and raise an error if malformatted TSV
+
+		// Slow implementation when the field contains a double-quote or not
 		for {
 			field.WriteByte(b)
 			b, ok = r.readByte()
@@ -217,4 +245,22 @@ func (r *reader) readByte() (byte, bool) {
 	}
 	defer func() { r.index++ }()
 	return r.row[r.index], true
+}
+
+func (r *reader) readBytesTo(i int) []byte {
+	if i == -1 {
+		defer func() { r.index = len(r.row) }()
+		return r.row[r.index:]
+	}
+	defer func() {
+		// i is relative to r.index
+		// 1 is the separator byte
+		r.index = r.index + i + 1
+	}()
+	return r.row[r.index:(r.index + i)]
+}
+
+// returns the index of the next occurence of b or -1 if b is not present
+func (r *reader) indexOf(b byte) int {
+	return bytes.IndexByte(r.row[r.index:], b)
 }
