@@ -1,9 +1,6 @@
 package iosupport
 
-import (
-	"os"
-	"strings"
-)
+import "strings"
 
 // Provide tool like GNU wc command
 // Usage:
@@ -27,6 +24,18 @@ import (
 //  wc.Opts = opts
 //  wc.Perform()
 
+// CountWords counts all words in the given string.
+func CountWords(str string) int {
+	str = string(TrimNewline([]byte(str)))
+	if len(str) == 0 {
+		return 0
+	}
+	words := len(strings.Split(str, " "))
+	words += len(strings.Split(str, string('\t'))) - 1 // -1 because string itself is aready counted
+	return words
+}
+
+// A WordCount counts bytes, chars, words and lines from a given file.
 type WordCount struct {
 	s     *Scanner          // The scanner provided by the client.
 	Opts  *WordCountOptions // Defines what is counted
@@ -36,6 +45,7 @@ type WordCount struct {
 	Lines int               // Lines counter
 }
 
+// WordCountOptions lets you define which thing you want to count.
 type WordCountOptions struct {
 	CountByte bool
 	CountChar bool
@@ -43,7 +53,8 @@ type WordCountOptions struct {
 	CountLine bool
 }
 
-func NewWordCount(f *os.File) *WordCount {
+// NewWordCount instanciates a new WordCount for the given file.
+func NewWordCount(f FileReader) *WordCount {
 	return &WordCount{
 		s:     NewScanner(f),
 		Opts:  defaultWordCounterOptions(),
@@ -54,6 +65,7 @@ func NewWordCount(f *os.File) *WordCount {
 	}
 }
 
+// NewWordCountOptions instanciates a new WordCountOptions
 func NewWordCountOptions() *WordCountOptions {
 	return new(WordCountOptions)
 }
@@ -67,19 +79,19 @@ func defaultWordCounterOptions() *WordCountOptions {
 	}
 }
 
+// Perform starts the count
 func (wc *WordCount) Perform() error {
+	wc.s.KeepNewlineSequence(true)
 	for wc.s.ScanLine() {
 		if wc.s.Err() != nil {
 			return wc.s.Err()
 		}
 
 		if wc.Opts.CountByte {
-			// +1 for EOL character
-			wc.Bytes += len(wc.s.Bytes()) + 1
+			wc.Bytes += len(wc.s.Bytes())
 		}
 		if wc.Opts.CountChar {
-			// +1 for EOL character
-			wc.Chars += len(wc.s.Text()) + 1
+			wc.Chars += len([]rune(wc.s.Text()))
 		}
 		if wc.Opts.CountWord {
 			wc.Words += CountWords(wc.s.Text())
@@ -89,13 +101,4 @@ func (wc *WordCount) Perform() error {
 		}
 	}
 	return nil
-}
-
-func CountWords(str string) int {
-	if len(str) == 0 {
-		return 0
-	}
-	words := len(strings.Split(str, " "))
-	words += len(strings.Split(str, string('\t'))) - 1 // -1 because string itself is aready counted
-	return words
 }

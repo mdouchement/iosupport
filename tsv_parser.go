@@ -25,7 +25,7 @@ var (
 	ErrQuote = errors.New("extraneous \" in field")
 )
 
-// UnescapeSeparator cleans composed separator like \t
+// UnescapeSeparator cleans composed separator like `\t'.
 func UnescapeSeparator(separator string) byte {
 	if separator == "\\t" {
 		separator = "\t"
@@ -33,7 +33,7 @@ func UnescapeSeparator(separator string) byte {
 	return []byte(separator)[0]
 }
 
-// TrimNewline removes newline characters at the end of line
+// TrimNewline removes newline characters at the end of line.
 func TrimNewline(line []byte) []byte {
 	line = bytes.TrimRight(line, "\n")
 	line = bytes.TrimRight(line, "\r")
@@ -47,7 +47,9 @@ func TrimNewline(line []byte) []byte {
 // non-doubled quote may appear in a quoted field.
 //
 // /!\ Warning:
-// - It does not support \r\n in quoted field.
+//
+// - It does not support `\r\n' in quoted field.
+//
 // - It does not support comment.
 type TsvParser struct {
 	*Scanner
@@ -60,7 +62,7 @@ type TsvParser struct {
 	quoteChar  []byte // for internal purpose (see parseFields function)
 }
 
-// NewTsvParser inatanciates a new TsvParser
+// NewTsvParser inatanciates a new TsvParser.
 func NewTsvParser(sc *Scanner, separator byte) *TsvParser {
 	sc.Reset()
 	return &TsvParser{
@@ -92,18 +94,18 @@ func (tp *TsvParser) Err() error {
 	return tp.err
 }
 
-// Row returns a slice of []byte with each []byte representing one field
+// Row returns a slice of fields for the current row.
 func (tp *TsvParser) Row() [][]byte {
 	return tp.row
 }
 
-// Reset resets parser and its underliying scanner. It freeing the memory
+// Reset resets parser and its underliying scanner. It freeing the memory.
 func (tp *TsvParser) Reset() {
 	tp.Scanner.Reset()
 	tp.row = make([][]byte, 0)
 }
 
-// ScanRow advances the TSV parser to the next row
+// ScanRow advances the TSV parser to the next row.
 func (tp *TsvParser) ScanRow() bool {
 	b := tp.ScanLine()
 	if tp.Scanner.Err() != nil {
@@ -118,13 +120,13 @@ func (tp *TsvParser) ScanRow() bool {
 	return b
 }
 
-// Simple fields parser
+// Fields parser for the current read row
 func (tp *TsvParser) parseFields() [][]byte {
 	if !bytes.Contains(tp.Bytes(), tp.quoteChar) {
-		// unquoted line
+		// unquoted line (fast mode)
 		return bytes.Split(TrimNewline(tp.Bytes()), tp.separator)
 	}
-	// quoted line
+	// quoted line (normal mode)
 	fields := [][]byte{}
 	r := newReader(tp.Bytes())
 	field := tp.parseField(r)
@@ -147,7 +149,8 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 	case tp.QuoteChar:
 		// quoted field
 
-		// Fast implementation when the field is basic (e.g `...,"col 1",...')
+		// Fast mode
+		// Enabled when the field is basic (e.g `...,"col 1",...')
 		si := r.indexOf(tp.Separator)
 		qci := r.indexOf(tp.QuoteChar)
 		if qci < si && qci+1 == si {
@@ -157,7 +160,8 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 			return field.Bytes()
 		}
 
-		// Slow implementation when the quoted field is more complex (e.g `...,"col ""is"" 1",...')
+		// Normal mode
+		// Enabled when the quoted field is more complex (e.g `...,"col ""is"" 1",...')
 		for {
 			b, ok = r.readByte()
 			if !ok {
@@ -192,7 +196,8 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 	default:
 		// unquoted field
 
-		// Fast implementation when the field does not contain a double-quote (e.g `..,col1,..')
+		// Fast mode
+		// Enabled when the field does not contain a double-quote (e.g `..,col1,..')
 		si := r.indexOf(tp.Separator)
 		qci := r.indexOf(tp.QuoteChar)
 		if qci == -1 || si < qci {
@@ -206,7 +211,8 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 		// At this point, a quote char is present in the current unquoted field (e.g `col"5')
 		// So we will parse and raise an error if malformatted TSV
 
-		// Slow implementation when the field contains a double-quote or not
+		// Normal mode
+		// Enabled when the field contains a double-quote or not
 		for {
 			field.WriteByte(b)
 			b, ok = r.readByte()
@@ -254,7 +260,7 @@ func (r *reader) readBytesTo(i int) []byte {
 	}
 	defer func() {
 		// i is relative to r.index
-		// 1 is the separator byte
+		// 1 is the separator character (byte)
 		r.index = r.index + i + 1
 	}()
 	return r.row[r.index:(r.index + i)]

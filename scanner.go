@@ -24,7 +24,7 @@ import (
 //   println(line)
 // })
 //
-// See other methods for custom usage
+// See other methods for custom usage.
 
 var (
 	// LF -> linefeed
@@ -34,17 +34,17 @@ var (
 	newLines      = []byte{CR, LF}
 )
 
-// Scanner conatins all stuff for reading a buffered file
+// Scanner conatins all stuff for reading a buffered file.
 type Scanner struct {
-	f               FileReader    // The file provided by the client.
-	r               *bufio.Reader // Buffered reader on given file.
-	keepnls         bool          // Keep the newline sequence in returned strings
+	f       FileReader    // The file provided by the client.
+	r       *bufio.Reader // Buffered reader on given file.
+	keepnls bool          // Keep the newline sequence in returned strings
 	newlineSequence []byte        // Backup line terminators sequence (e.g. \r\n)
-	token           []byte        // Last token returned by split (scan).
-	err             error         // Sticky error.
-	line            int           // index of current read line
-	offset          uint64        // Offset of the start of the read line
-	limit           uint32        // Length of the read line including newline sequence
+	token   []byte        // Last token returned by split (scan).
+	err     error         // Sticky error.
+	line    int           // index of current read line.
+	offset  uint64        // Offset of the start of the read line.
+	limit   uint32        // Length of the read line including newline sequence.
 }
 
 // NewScanner instanciates a Scanner
@@ -57,7 +57,7 @@ func NewScanner(f FileReader) *Scanner {
 	}
 }
 
-// KeepNewlineSequence keeps the newline sequence in read lines
+// KeepNewlineSequence keeps the newline sequence in read lines.
 func (s *Scanner) KeepNewlineSequence(b bool) {
 	s.keepnls = b
 }
@@ -88,17 +88,17 @@ func (s *Scanner) Err() error {
 	return s.err
 }
 
-// Line return the index of the current line
+// Line return the index of the current line.
 func (s *Scanner) Line() int {
 	return s.line
 }
 
-// Offset return the byte offset of the current line
+// Offset return the byte offset of the current line.
 func (s *Scanner) Offset() uint64 {
 	return s.offset
 }
 
-// Limit return the byte length of the current line including newline sequence
+// Limit return the byte length of the current line including newline sequence.
 func (s *Scanner) Limit() uint32 {
 	return s.limit
 }
@@ -141,7 +141,7 @@ func (s *Scanner) ScanLine() bool {
 	}
 }
 
-// EachLine iterate on each line and execute the given function
+// EachLine iterate on each line and execute the given function.
 func (s *Scanner) EachLine(fn func([]byte, error)) {
 	s.Reset()
 	for s.ScanLine() {
@@ -149,7 +149,7 @@ func (s *Scanner) EachLine(fn func([]byte, error)) {
 	}
 }
 
-// EachString iterates on each line as string format and execute the given function
+// EachString iterates on each line as string format and execute the given function.
 func (s *Scanner) EachString(fn func(string, error)) {
 	s.Reset()
 	for s.ScanLine() {
@@ -176,12 +176,12 @@ func (s *Scanner) setErr(err error) {
 	}
 }
 
-// IsLineEmpty says if the current line is empty (only when newline character is not keeped)
+// IsLineEmpty says if the current line is empty (only when newline character is not keeped).
 func (s *Scanner) IsLineEmpty() bool {
 	return len(s.token) == 0
 }
 
-// Reset seek to top of file and clean buffer
+// Reset seek to top of file and clean buffer.
 func (s *Scanner) Reset() {
 	s.f.Seek(0, 0)
 	s.line = -1
