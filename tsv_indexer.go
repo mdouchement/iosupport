@@ -18,7 +18,7 @@ type tsvLines []TsvLine
 
 // Internal use
 type seeker struct {
-	sc     *Scanner
+	*Scanner
 	offset uint64
 }
 
@@ -90,13 +90,20 @@ func (ti *TsvIndexer) Sort() {
 // Transfer writes sorted TSV into a new file
 func (ti *TsvIndexer) Transfer(output FileWriter) error {
 	w := bufio.NewWriter(output)
+	ns := ti.parser.NewlineSequence()
+	n := ns[len(ns)-1]
 
 	// For all sorted lines contained in the TSV
 	for _, line := range ti.Lines {
-		token, err := ti.selectSeeker(line.Offset).sc.ReadAt(int64(line.Offset), int(line.Limit)) // Reads the current line
+		token, err := ti.selectSeeker(line.Offset).ReadAt(int64(line.Offset), int(line.Limit)) // Reads the current line
 		if err != nil {
 			return err
 		}
+
+		if token[len(token)-1] != n {
+			token = append(token, ns...) // Appends newline sequence when missing
+		}
+
 		if _, err := w.Write(token); err != nil { // writes the current line into the sorted TSV output
 			return err
 		}
@@ -147,13 +154,13 @@ func (ti *TsvIndexer) createSeekers() {
 // appendSeeker appends a new seeker based on the given offset. Seekers must be appened ordering by the offset
 func (ti *TsvIndexer) appendSeeker(offset uint64) {
 	sc := ti.scannerFunc()
-	ti.seekers = append(ti.seekers, seeker{sc, offset})
+	ti.seekers = append(ti.seekers, seeker{Scanner: sc, offset: offset})
 }
 
 // releaseSeekers closes internal opened file
 func (ti *TsvIndexer) releaseSeekers() {
 	for _, seeker := range ti.seekers {
-		seeker.sc.f.Close()
+		seeker.f.Close()
 	}
 }
 
