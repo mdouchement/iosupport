@@ -9,24 +9,40 @@ import (
 	"github.com/mdouchement/iosupport"
 )
 
-var data string = "The first line.\nThe second line :)\n\n"
-var dataCR string = "The first line.\rThe second line :)\r\r"
-var dataCRLF string = "The first line.\r\nThe second line.\r\n\r\n"
-var dataLFCR string = "The first line.\n\rThe second line.\n\r\n\r"
+var data = []struct {
+	name     string
+	input    string
+	expected []bool
+}{
+	{"normal", "The first line.\nThe second line :)\n\n", []bool{true, true, true, false}},
+	{"with_eof", "The first line.\nThe second line :)", []bool{true, true, false}},
+	{"cr", "The first line.\rThe second line :)\r\r", []bool{true, true, true, false}},
+	{"crlf", "The first line.\r\nThe second line.\r\n\r\n", []bool{true, true, true, false}},
+	{"lfcr", "The first line.\n\rThe second line.\n\r\n\r", []bool{true, true, true, false}},
+}
+
+func d(name string) (string, []bool) {
+	for _, d := range data {
+		if d.name == name {
+			return d.input, d.expected
+		}
+	}
+	return "", nil
+}
 
 func TestScannerScanLine(t *testing.T) {
-	for di, d := range []string{data, dataCR, dataCRLF, dataLFCR} {
-		path := generateTmpFile(d)
+	for _, d := range data {
+		path := generateTmpFile(d.input)
 		file, err := os.Open(path)
 		check(err)
 		defer file.Close()
 
 		sc := iosupport.NewScanner(file)
 
-		for i, expected := range []bool{true, true, true, false} {
+		for i, expected := range d.expected {
 			actual := sc.ScanLine()
 			if actual != expected {
-				t.Errorf("[Data index: %v - Line %v]: Expected '%v' but got '%v'", di, i+1, expected, actual)
+				t.Errorf("[Data `%s' - Line %v]: Expected '%v' but got '%v'", d.name, i+1, expected, actual)
 			}
 		}
 	}
@@ -39,12 +55,14 @@ func TestScannerBytes(t *testing.T) {
 	defer file.Close()
 
 	sc := iosupport.NewScanner(file)
-	lines := strings.Split(data, "\n")
+	lines := strings.Split(data[0].input, "\n")
 	offsets := []uint64{0, 16, 35, 36}
-	limits := []uint32{16, 19, 1, 1}
+	limits := []uint32{16, 19, 1, 0}
 
 	for i, bts := range []string(lines) {
 		sc.ScanLine()
+		check(sc.Err())
+
 		expected := []byte(bts)
 		actual := sc.Bytes()
 		t.Logf("expected: %v", expected)
@@ -72,7 +90,7 @@ func TestScannerBytesKeepNewlineSequence(t *testing.T) {
 
 	sc := iosupport.NewScanner(file)
 	sc.KeepNewlineSequence(true)
-	lines := strings.Split(data, "\n")
+	lines := strings.Split(data[0].input, "\n")
 
 	for i, bts := range []string(lines) {
 		sc.ScanLine()
@@ -95,7 +113,7 @@ func TestScannerText(t *testing.T) {
 	defer file.Close()
 
 	sc := iosupport.NewScanner(file)
-	lines := strings.Split(data, "\n")
+	lines := strings.Split(data[0].input, "\n")
 
 	for _, expected := range []string(lines) {
 		sc.ScanLine()
@@ -114,7 +132,7 @@ func TestScannerTextKeepNewlineSequence(t *testing.T) {
 
 	sc := iosupport.NewScanner(file)
 	sc.KeepNewlineSequence(true)
-	lines := strings.Split(data, "\n")
+	lines := strings.Split(data[0].input, "\n")
 
 	for i, expected := range []string(lines) {
 		sc.ScanLine()
@@ -135,7 +153,7 @@ func TestScannerEachLine(t *testing.T) {
 	defer file.Close()
 
 	sc := iosupport.NewScanner(file)
-	lines := strings.Split(data, "\n")
+	lines := strings.Split(data[0].input, "\n")
 	i := 0
 
 	sc.EachLine(func(actual []byte, err error) {
@@ -154,7 +172,7 @@ func TestScannerEachString(t *testing.T) {
 	defer file.Close()
 
 	sc := iosupport.NewScanner(file)
-	expected := strings.Split(data, "\n")
+	expected := strings.Split(data[0].input, "\n")
 	i := 0
 
 	sc.EachString(func(actual string, err error) {
@@ -205,7 +223,7 @@ func generateTmpFile(input ...string) string {
 	var d string
 	switch len(input) {
 	case 0:
-		d = data
+		d = data[0].input
 	case 1:
 		d = input[0]
 	default:

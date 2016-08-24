@@ -115,6 +115,9 @@ func (s *Scanner) ScanLine() bool {
 
 		// End-of-file detection or error detection
 		if err != nil {
+			if err == io.EOF {
+				s.limit = uint32(len(s.token))
+			}
 			s.err = err
 			return !s.IsLineEmpty()
 		}
