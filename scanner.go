@@ -36,15 +36,15 @@ var (
 
 // Scanner conatins all stuff for reading a buffered file.
 type Scanner struct {
-	f       FileReader    // The file provided by the client.
-	r       *bufio.Reader // Buffered reader on given file.
-	keepnls bool          // Keep the newline sequence in returned strings
+	f               FileReader    // The file provided by the client.
+	r               *bufio.Reader // Buffered reader on given file.
+	keepnls         bool          // Keep the newline sequence in returned strings
 	newlineSequence []byte        // Backup line terminators sequence (e.g. \r\n)
-	token   []byte        // Last token returned by split (scan).
-	err     error         // Sticky error.
-	line    int           // index of current read line.
-	offset  uint64        // Offset of the start of the read line.
-	limit   uint32        // Length of the read line including newline sequence.
+	token           []byte        // Last token returned by split (scan).
+	err             error         // Sticky error.
+	line            int           // index of current read line.
+	offset          uint64        // Offset of the start of the read line.
+	limit           uint32        // Length of the read line including newline sequence.
 }
 
 // NewScanner instanciates a Scanner
