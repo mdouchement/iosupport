@@ -122,13 +122,14 @@ func (tp *TsvParser) ScanRow() bool {
 
 // Fields parser for the current read row
 func (tp *TsvParser) parseFields() [][]byte {
-	if !bytes.Contains(tp.Bytes(), tp.quoteChar) {
+	row := TrimNewline(tp.Bytes())
+	if !bytes.Contains(row, tp.quoteChar) {
 		// unquoted line (fast mode)
-		return bytes.Split(TrimNewline(tp.Bytes()), tp.separator)
+		return bytes.Split(row, tp.separator)
 	}
 	// quoted line (normal mode)
 	fields := [][]byte{}
-	r := newReader(tp.Bytes())
+	r := newReader(row)
 	field := tp.parseField(r)
 	for field != nil {
 		fields = append(fields, field)
@@ -142,10 +143,16 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 
 	b, ok := r.readByte()
 	if !ok {
+		if r.isLastByte(tp.Separator) && !r.eof {
+			r.eof = true
+			return []byte{} // Empty field
+		}
 		return nil
 	}
 
 	switch b {
+	case tp.Separator:
+		return []byte{} // Empty field
 	case tp.QuoteChar:
 		// quoted field
 
@@ -236,6 +243,7 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 type reader struct {
 	index int
 	row   []byte
+	eof   bool
 }
 
 func newReader(row []byte) *reader {
@@ -269,4 +277,8 @@ func (r *reader) readBytesTo(i int) []byte {
 // returns the index of the next occurence of b or -1 if b is not present
 func (r *reader) indexOf(b byte) int {
 	return bytes.IndexByte(r.row[r.index:], b)
+}
+
+func (r *reader) isLastByte(b byte) bool {
+	return r.row[len(r.row)-1] == b
 }
