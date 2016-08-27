@@ -11,7 +11,9 @@ import (
 var tsvParserInput = `c1,"c,2",c3
 val45,val2,val3
 val40,"val42 ""the"" best",val6
-`
+v1,,v3
+v4,v5,
+a,b,c`
 
 var tsvParserErrQuote = []struct {
 	col int
@@ -34,6 +36,9 @@ func TestTsvParser(t *testing.T) {
 		[]string{"c1", "c,2", "c3"},
 		[]string{"val45", "val2", "val3"},
 		[]string{"val40", "val42 \"the\" best", "val6"},
+		[]string{"v1", "", "v3"},
+		[]string{"v4", "v5", ""},
+		[]string{"a", "b", "c"},
 	}
 	for parser.ScanRow() {
 		check(parser.Err())
@@ -53,8 +58,8 @@ func TestTsvParser(t *testing.T) {
 		}
 		for j, expected := range expectedRows[i] {
 			if expected != actual[j] {
-				t.Logf("expected '%v' - actual '%v' at index %d", expectedRows[i], actual, i)
-				t.Errorf("Expected '%v' but got '%v' at index %d", expected, actual[j], i)
+				t.Logf("Expected '%v' - actual '%v' at index %d", expectedRows[i], actual, i)
+				t.Errorf("  -> Expected '%v' but got '%v' at index %d", expected, actual[j], i)
 			}
 		}
 		i++
