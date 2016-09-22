@@ -72,7 +72,7 @@ func (ti *TsvIndexer) Analyze() error {
 		if ti.parser.Err() != nil {
 			return ti.parser.Err()
 		}
-		err := ti.tsvLineAppender(ti.parser.Row(), ti.parser.Line(), ti.parser.Offset(), ti.parser.Limit())
+		err := ti.tsvLineAppender(ti.parser.Row(), len(ti.Lines), ti.parser.Offset(), ti.parser.Limit())
 		if err != nil {
 			return err
 		}
@@ -210,10 +210,12 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 			ti.FieldsIndex[field] = i - 1
 			ti.appendComparable(row[i-1], index) // The first row contains data (/!\ it is not an header)
 		}
+		ti.dropLastLineIfEmptyComparable()
 	} else {
 		for _, field := range ti.Fields {
 			ti.appendComparable(row[ti.FieldsIndex[field]], index)
 		}
+		ti.dropLastLineIfEmptyComparable()
 	}
 	return nil
 }
@@ -223,6 +225,13 @@ func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
 	cp := make([]byte, len(comparable), len(comparable))
 	copy(cp, comparable) // Freeing the underlying array (https://blog.golang.org/go-slices-usage-and-internals - chapter: A possible "gotcha")
 	ti.Lines[index].Comparable += string(cp)
+}
+
+func (ti *TsvIndexer) dropLastLineIfEmptyComparable() {
+	i := len(ti.Lines) - 1
+	if ti.Lines[i].Comparable == "" {
+		ti.Lines = ti.Lines[:i]
+	}
 }
 
 // Append to TsvIndexer.FieldsIndex the index in the row of all TsvIndexer.Fields
