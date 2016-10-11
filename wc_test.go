@@ -7,8 +7,10 @@ import (
 	"github.com/mdouchement/iosupport"
 )
 
+var wordCountInput = "The first line.\nThe secönd line :)\n\n"
+
 func TestWordCountPerform(t *testing.T) {
-	path := generateTmpFile()
+	path := generateTmpFile(wordCountInput)
 	file, err := os.Open(path)
 	check(err)
 	defer file.Close()
@@ -36,7 +38,7 @@ func TestWordCountPerform(t *testing.T) {
 }
 
 func TestWordCountWithCustomOptions(t *testing.T) {
-	path := generateTmpFile()
+	path := generateTmpFile(wordCountInput)
 	file, err := os.Open(path)
 	check(err)
 	defer file.Close()
@@ -48,8 +50,8 @@ func TestWordCountWithCustomOptions(t *testing.T) {
 	err = wc.Perform()
 	check(err)
 
-	if wc.Bytes != 36 {
-		t.Errorf("Invalid number of bytes. Expected 36 but got %v", wc.Bytes)
+	if wc.Bytes != 37 {
+		t.Errorf("Invalid number of bytes. Expected 37 but got %v", wc.Bytes)
 	}
 
 	if wc.Chars != 0 {

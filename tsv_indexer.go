@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-// TsvLine describes the line's details from a TSV
+// TsvLine describes the line's details from a TSV.
 type TsvLine struct {
 	Comparable string
 	Offset     uint64
@@ -22,7 +22,7 @@ type seeker struct {
 	offset uint64
 }
 
-// TsvIndexer contains all stuff for indexing columns from a TSV
+// TsvIndexer contains all stuff for indexing and sorting columns from a TSV.
 type TsvIndexer struct {
 	parser        *TsvParser
 	Header        bool
@@ -35,7 +35,7 @@ type TsvIndexer struct {
 	LineThreshold int
 }
 
-// NewTsvIndexer instanciates a new TsvIndexer
+// NewTsvIndexer instanciates a new TsvIndexer.
 func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, fields []string) *TsvIndexer {
 	sc := scannerFunc()
 	sc.Reset()
@@ -52,13 +52,13 @@ func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, f
 	}
 }
 
-// CloseIO closes all opened IO
+// CloseIO closes all opened IO.
 func (ti *TsvIndexer) CloseIO() {
 	ti.parser.Scanner.f.Close()
 	ti.releaseSeekers()
 }
 
-// Analyze parses the TSV and generates the indexes
+// Analyze parses the TSV and generates the indexes.
 func (ti *TsvIndexer) Analyze() error {
 	if !ti.Header {
 		re := regexp.MustCompile(`var(\d+)`)
@@ -82,12 +82,12 @@ func (ti *TsvIndexer) Analyze() error {
 	return nil
 }
 
-// Sort sorts TsvLine on its comparables
+// Sort sorts TsvLine on its comparables.
 func (ti *TsvIndexer) Sort() {
 	sort.Sort(ti.Lines)
 }
 
-// Transfer writes sorted TSV into a new file
+// Transfer writes sorted TSV into a new file.
 func (ti *TsvIndexer) Transfer(output FileWriter) error {
 	w := bufio.NewWriter(output)
 	ns := ti.parser.NewlineSequence()
