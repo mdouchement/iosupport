@@ -255,7 +255,7 @@ func newReader(row []byte) *reader {
 
 func (r *reader) readByte() (byte, bool) {
 	if r.index >= len(r.row) {
-		return '\x00', false
+		return '\u0000', false
 	}
 	defer func() { r.index++ }()
 	return r.row[r.index], true
