@@ -1,6 +1,7 @@
 package iosupport_test
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -10,14 +11,6 @@ import (
 
 var tsvIndexerInput = "c1,c2,c3\nval45,val2,val3\nval40,val2,val6\n"
 var tsvIndexerInputFields = []string{"c2", "c1"}
-
-var tsvIndexerInputWithoutHeader = "val1,val2,val3\nval4,val5,val6\nval7,val8,val9\n"
-var tsvIndexerInputFieldsWithoutHeader = []string{"var2"}
-
-var tsvIndexerInputWithEmtyCells = "c1,c2,c3\nval45,val2,\nval40,val2,val6\n"
-var tsvIndexerInputFieldsWithEmtyCells = []string{"c3"}
-
-var emptyTsvIndexerInput = ""
 
 func TestTsvIndexerAnalyze(t *testing.T) {
 	file, actual, expected := prepareTsvIndexer(tsvIndexerInput)
@@ -41,6 +34,9 @@ func TestTsvIndexerAnalyze(t *testing.T) {
 	}
 }
 
+var tsvIndexerInputWithoutHeader = "val1,val2,val3\nval4,val5,val6\nval7,val8,val9\n"
+var tsvIndexerInputFieldsWithoutHeader = []string{"var2"}
+
 func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
 	file, actual, expected := prepareTsvIndexer(tsvIndexerInputWithoutHeader)
 	defer file.Close()
@@ -59,7 +55,7 @@ func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
 	}
 
 	expected.Fields = tsvIndexerInputFieldsWithoutHeader
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"val2", 0, 0}, iosupport.TsvLine{"val5", 0, 0}, iosupport.TsvLine{"val8", 0, 0}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("val2"), 0, 0}, iosupport.TsvLine{cs("val5"), 0, 0}, iosupport.TsvLine{cs("val8"), 0, 0}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -70,6 +66,9 @@ func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
 	}
 }
 
+var tsvIndexerInputWithEmtyCells = "c1,c2,c3\nval45,val2,\nval40,val2,val6\n"
+var tsvIndexerInputFieldsWithEmtyCells = []string{"c3"}
+
 func TestTsvIndexerAnalyzeWithEmptyCells(t *testing.T) {
 	file, actual, expected := prepareTsvIndexer(tsvIndexerInputWithEmtyCells)
 	defer file.Close()
@@ -78,7 +77,7 @@ func TestTsvIndexerAnalyzeWithEmptyCells(t *testing.T) {
 	actual.Analyze()
 
 	expected.Fields = tsvIndexerInputFieldsWithEmtyCells
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{"val6", 21, 16}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs(""), 0, 9}, iosupport.TsvLine{cs(""), 9, 12}, iosupport.TsvLine{cs("val6"), 21, 16}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -95,6 +94,37 @@ func TestTsvIndexerAnalyzeWithEmptyCells(t *testing.T) {
 		}
 	}
 }
+
+var tsvIndexerInputAnalyzeSort = "c1,c2,c3\n1,0,42\n10,0,42\n"
+var tsvIndexerInputFieldsAnalyzeSort = []string{"c1", "c2"}
+
+func TestTsvIndexerAnalyzeSort(t *testing.T) {
+	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSort)
+	defer file.Close()
+
+	actual.Fields = tsvIndexerInputFieldsAnalyzeSort
+	actual.Analyze()
+
+	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("", ""), 0, 9}, iosupport.TsvLine{cs("1", "0"), 9, 7}, iosupport.TsvLine{cs("10", "0"), 16, 8}}
+
+	t.Logf("expected.Lines: %v", expected.Lines)
+	t.Logf("actual.Lines:   %v", actual.Lines)
+	for i, expectedLine := range expected.Lines {
+		if actual.Lines[i].Offset != expectedLine.Offset {
+			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
+		}
+		if actual.Lines[i].Limit != expectedLine.Limit {
+			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
+		}
+
+		if expectedLine.Comparable != actual.Lines[i].Comparable {
+			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
+		}
+	}
+}
+
+var emptyTsvIndexerInput = ""
 
 func TestTsvIndexerAnalyzeHasBadFields(t *testing.T) {
 	file, actual, _ := prepareTsvIndexer(tsvIndexerInput)
@@ -139,7 +169,7 @@ func TestTsvSort(t *testing.T) {
 	check(err)
 	actual.Sort()
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{"val2val40", 25, 16}, iosupport.TsvLine{"val2val45", 9, 16}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("", ""), 0, 9}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -190,6 +220,15 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 	// expected.I = iosupport.NewIndexer(sc())
 	// expected.I.NbOfLines = 3
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{"val2val45", 9, 16}, iosupport.TsvLine{"val2val40", 25, 16}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("", ""), 0, 9}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}}
 	return
+}
+
+func cs(cols ...string) string {
+	var buf bytes.Buffer
+	for _, col := range cols {
+		buf.WriteString(col)
+		buf.WriteString(iosupport.COMPARABLE_SEPARATOR)
+	}
+	return buf.String()
 }

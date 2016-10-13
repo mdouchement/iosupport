@@ -3,10 +3,13 @@ package iosupport
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
 )
+
+const COMPARABLE_SEPARATOR = "\u0000"
 
 // TsvLine describes the line's details from a TSV.
 type TsvLine struct {
@@ -224,7 +227,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
 	cp := make([]byte, len(comparable), len(comparable))
 	copy(cp, comparable) // Freeing the underlying array (https://blog.golang.org/go-slices-usage-and-internals - chapter: A possible "gotcha")
-	ti.Lines[index].Comparable += string(cp)
+	ti.Lines[index].Comparable += fmt.Sprintf("%s%s", cp, COMPARABLE_SEPARATOR)
 }
 
 func (ti *TsvIndexer) dropLastLineIfEmptyComparable() {
