@@ -7,36 +7,41 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 const COMPARABLE_SEPARATOR = "\u0000"
 
 // TsvLine describes the line's details from a TSV.
-type TsvLine struct {
-	Comparable string
-	Offset     uint64
-	Limit      uint32
-}
-type tsvLines []TsvLine
+type (
+	TsvLine struct {
+		Comparable string
+		Offset     uint64
+		Limit      uint32
+	}
+	tsvLines []TsvLine
 
-// Internal use
-type seeker struct {
-	*Scanner
-	offset uint64
-}
+	// Internal use
+	seeker struct {
+		*Scanner
+		offset uint64
+	}
 
-// TsvIndexer contains all stuff for indexing and sorting columns from a TSV.
-type TsvIndexer struct {
-	parser        *TsvParser
-	Header        bool
-	Separator     byte
-	Fields        []string
-	FieldsIndex   map[string]int
-	Lines         tsvLines
-	seekers       []seeker
-	scannerFunc   func() *Scanner
-	LineThreshold int
-}
+	// TsvIndexer contains all stuff for indexing and sorting columns from a TSV.
+	TsvIndexer struct {
+		parser          *TsvParser
+		Header          bool
+		Separator       byte
+		Fields          []string
+		FieldsIndex     map[string]int
+		Lines           tsvLines
+		seekers         []seeker
+		scannerFunc     func() *Scanner
+		LineThreshold   int
+		dropEmptyLines  bool
+		blankComparable string
+	}
+)
 
 // NewTsvIndexer instanciates a new TsvIndexer.
 func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, fields []string) *TsvIndexer {
@@ -44,15 +49,21 @@ func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, f
 	sc.Reset()
 	sc.KeepNewlineSequence(true)
 	return &TsvIndexer{
-		parser:        NewTsvParser(sc, UnescapeSeparator(separator)),
-		Header:        header,
-		Separator:     UnescapeSeparator(separator),
-		Fields:        fields,
-		FieldsIndex:   make(map[string]int),
-		scannerFunc:   scannerFunc,
-		LineThreshold: 2500000,
-		seekers:       []seeker{seeker{sc, 0}},
+		parser:          NewTsvParser(sc, UnescapeSeparator(separator)),
+		Header:          header,
+		Separator:       UnescapeSeparator(separator),
+		Fields:          fields,
+		FieldsIndex:     make(map[string]int),
+		scannerFunc:     scannerFunc,
+		LineThreshold:   2500000,
+		seekers:         []seeker{seeker{sc, 0}},
+		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(fields)),
 	}
+}
+
+// DropEmptyLines defines if we drop or not lines where the comparable is blank.
+func (ti *TsvIndexer) DropEmptyLines(b bool) {
+	ti.dropEmptyLines = b
 }
 
 // CloseIO closes all opened IO.
@@ -197,7 +208,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 		// Build empty comparable
 		// When comparables are sorted, this one (the header) remains the first line
 		for i := 0; i < len(ti.Fields); i++ {
-			ti.appendComparable([]byte{}, index)
+			ti.Lines[index].Comparable = ""
 		}
 	} else if index == 0 {
 		// Without header, fields are named like the following pattern /var\d+/
@@ -231,8 +242,12 @@ func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
 }
 
 func (ti *TsvIndexer) dropLastLineIfEmptyComparable() {
+	if !ti.dropEmptyLines {
+		return
+	}
+
 	i := len(ti.Lines) - 1
-	if ti.Lines[i].Comparable == "" {
+	if ti.Lines[i].Comparable == ti.blankComparable {
 		ti.Lines = ti.Lines[:i]
 	}
 }

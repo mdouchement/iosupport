@@ -35,23 +35,25 @@ func CountWords(str string) int {
 	return words
 }
 
-// A WordCount counts bytes, chars, words and lines from a given file.
-type WordCount struct {
-	s     *Scanner          // The scanner provided by the client.
-	Opts  *WordCountOptions // Defines what is counted
-	Bytes int               // Bytes counter
-	Chars int               // Chars counter
-	Words int               // Words counter
-	Lines int               // Lines counter
-}
+type (
+	// A WordCount counts bytes, chars, words and lines from a given file.
+	WordCount struct {
+		s     *Scanner          // The scanner provided by the client.
+		Opts  *WordCountOptions // Defines what is counted
+		Bytes int               // Bytes counter
+		Chars int               // Chars counter
+		Words int               // Words counter
+		Lines int               // Lines counter
+	}
 
-// WordCountOptions lets you define which thing you want to count.
-type WordCountOptions struct {
-	CountByte bool
-	CountChar bool
-	CountWord bool
-	CountLine bool
-}
+	// WordCountOptions lets you define which thing you want to count.
+	WordCountOptions struct {
+		CountByte bool
+		CountChar bool
+		CountWord bool
+		CountLine bool
+	}
+)
 
 // NewWordCount instanciates a new WordCount for the given file.
 func NewWordCount(f FileReader) *WordCount {
