@@ -77,7 +77,7 @@ func TestTsvIndexerAnalyzeWithEmptyCells(t *testing.T) {
 	actual.Analyze()
 
 	expected.Fields = tsvIndexerInputFieldsWithEmtyCells
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs(""), 0, 9}, iosupport.TsvLine{cs(""), 9, 12}, iosupport.TsvLine{cs("val6"), 21, 16}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs(""), 9, 12}, iosupport.TsvLine{cs("val6"), 21, 16}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -95,7 +95,7 @@ func TestTsvIndexerAnalyzeWithEmptyCells(t *testing.T) {
 	}
 }
 
-var tsvIndexerInputAnalyzeSort = "c1,c2,c3\n1,0,42\n10,0,42\n"
+var tsvIndexerInputAnalyzeSort = "c1,c2,c3\n1,0,42\n10,0,42\n,,42\n"
 var tsvIndexerInputFieldsAnalyzeSort = []string{"c1", "c2"}
 
 func TestTsvIndexerAnalyzeSort(t *testing.T) {
@@ -106,7 +106,39 @@ func TestTsvIndexerAnalyzeSort(t *testing.T) {
 	actual.Analyze()
 
 	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("", ""), 0, 9}, iosupport.TsvLine{cs("1", "0"), 9, 7}, iosupport.TsvLine{cs("10", "0"), 16, 8}}
+	expected.Lines = []iosupport.TsvLine{
+		iosupport.TsvLine{"", 0, 9},
+		iosupport.TsvLine{cs("1", "0"), 9, 7},
+		iosupport.TsvLine{cs("10", "0"), 16, 8},
+		iosupport.TsvLine{cs("", ""), 24, 5},
+	}
+
+	t.Logf("expected.Lines: %v", expected.Lines)
+	t.Logf("actual.Lines:   %v", actual.Lines)
+	for i, expectedLine := range expected.Lines {
+		if actual.Lines[i].Offset != expectedLine.Offset {
+			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
+		}
+		if actual.Lines[i].Limit != expectedLine.Limit {
+			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
+		}
+
+		if expectedLine.Comparable != actual.Lines[i].Comparable {
+			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
+		}
+	}
+}
+
+func TestTsvIndexerAnalyzeSortWithEmptyComparableDropping(t *testing.T) {
+	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSort)
+	defer file.Close()
+
+	actual.DropEmptyLines(true)
+	actual.Fields = tsvIndexerInputFieldsAnalyzeSort
+	actual.Analyze()
+
+	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("1", "0"), 9, 7}, iosupport.TsvLine{cs("10", "0"), 16, 8}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -169,7 +201,7 @@ func TestTsvSort(t *testing.T) {
 	check(err)
 	actual.Sort()
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("", ""), 0, 9}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -220,7 +252,7 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 	// expected.I = iosupport.NewIndexer(sc())
 	// expected.I.NbOfLines = 3
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("", ""), 0, 9}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}}
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}}
 	return
 }
 
