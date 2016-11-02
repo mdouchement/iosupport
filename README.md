@@ -82,7 +82,7 @@ func main() {
   }
 
   // See tsv_indexer.go for more examples
-  indexer = iosupport.NewTsvIndexer(sc, true, ",", []string{"col2", "col1"}) // scanner, headerIsPresent, separator, fieldsForSorting
+  indexer = iosupport.NewTsvIndexer(sc, iosupport.Header(), iosupport.Separator(","), iosupport.Fields("col2", "col1")) // scanner, headerIsPresent, separator, fieldsForSorting
   indexer.LineThreshold = 25000 // Number of lines between each scanner's seek (see TsvIndexer#selectSeeker)
   defer indexer.CloseIO()
   err := indexer.Analyze() // creates lines index

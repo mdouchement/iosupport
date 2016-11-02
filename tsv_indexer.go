@@ -29,41 +29,39 @@ type (
 
 	// TsvIndexer contains all stuff for indexing and sorting columns from a TSV.
 	TsvIndexer struct {
+		*Options
 		parser          *TsvParser
-		Header          bool
-		Separator       byte
-		Fields          []string
 		FieldsIndex     map[string]int
 		Lines           tsvLines
 		seekers         []seeker
 		scannerFunc     func() *Scanner
 		LineThreshold   int
-		dropEmptyLines  bool
 		blankComparable string
 	}
 )
 
 // NewTsvIndexer instanciates a new TsvIndexer.
-func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, fields []string) *TsvIndexer {
+func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 	sc := scannerFunc()
 	sc.Reset()
 	sc.KeepNewlineSequence(true)
+
+	options := &Options{
+		Separator: ',',
+	}
+	for _, setter := range setters {
+		setter(options)
+	}
+
 	return &TsvIndexer{
-		parser:          NewTsvParser(sc, UnescapeSeparator(separator)),
-		Header:          header,
-		Separator:       UnescapeSeparator(separator),
-		Fields:          fields,
+		parser:          NewTsvParser(sc, options.Separator),
+		Options:         options,
 		FieldsIndex:     make(map[string]int),
 		scannerFunc:     scannerFunc,
 		LineThreshold:   2500000,
 		seekers:         []seeker{seeker{sc, 0}},
-		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(fields)),
+		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(options.Fields)),
 	}
-}
-
-// DropEmptyLines defines if we drop or not lines where the comparable is blank.
-func (ti *TsvIndexer) DropEmptyLines(b bool) {
-	ti.dropEmptyLines = b
 }
 
 // CloseIO closes all opened IO.
@@ -242,7 +240,7 @@ func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
 }
 
 func (ti *TsvIndexer) dropLastLineIfEmptyComparable() {
-	if !ti.dropEmptyLines {
+	if !ti.DropEmptyIndexedFields {
 		return
 	}
 

@@ -133,7 +133,7 @@ func TestTsvIndexerAnalyzeSortWithEmptyComparableDropping(t *testing.T) {
 	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSort)
 	defer file.Close()
 
-	actual.DropEmptyLines(true)
+	actual.DropEmptyIndexedFields = true
 	actual.Fields = tsvIndexerInputFieldsAnalyzeSort
 	actual.Analyze()
 
@@ -142,6 +142,11 @@ func TestTsvIndexerAnalyzeSortWithEmptyComparableDropping(t *testing.T) {
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
+
+	if len(actual.Lines) != len(expected.Lines) {
+		t.Errorf("Expected '%v' lines but got '%v'", len(expected.Lines), len(actual.Lines))
+	}
+
 	for i, expectedLine := range expected.Lines {
 		if actual.Lines[i].Offset != expectedLine.Offset {
 			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
@@ -246,9 +251,9 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 		return iosupport.NewScanner(file)
 	}
 
-	actual = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
+	actual = iosupport.NewTsvIndexer(sc, iosupport.Header(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
 
-	expected = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
+	expected = iosupport.NewTsvIndexer(sc, iosupport.Header(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
 	// expected.I = iosupport.NewIndexer(sc())
 	// expected.I.NbOfLines = 3
 
