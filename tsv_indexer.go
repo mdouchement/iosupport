@@ -35,7 +35,6 @@ type (
 		Lines           tsvLines
 		seekers         []seeker
 		scannerFunc     func() *Scanner
-		LineThreshold   int
 		blankComparable string
 	}
 )
@@ -47,7 +46,8 @@ func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 	sc.KeepNewlineSequence(true)
 
 	options := &Options{
-		Separator: ',',
+		Separator:     ',',
+		LineThreshold: 2500000,
 	}
 	for _, setter := range setters {
 		setter(options)
@@ -58,7 +58,6 @@ func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 		Options:         options,
 		FieldsIndex:     make(map[string]int),
 		scannerFunc:     scannerFunc,
-		LineThreshold:   2500000,
 		seekers:         []seeker{seeker{sc, 0}},
 		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(options.Fields)),
 	}
@@ -198,6 +197,11 @@ func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 // ------------------ //
 
 func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
+	if !ti.isValidRow(row) {
+		// Discard mal-formatted lines
+		return nil
+	}
+
 	ti.Lines = append(ti.Lines, TsvLine{"", offset, limit})
 	if index == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
@@ -264,4 +268,19 @@ func (ti *TsvIndexer) findFieldsIndex(row [][]byte) error {
 		return errors.New("Invalid separator or sort fields")
 	}
 	return nil
+}
+
+func (ti *TsvIndexer) isValidRow(row [][]byte) bool {
+	if !ti.SkipMalformattedLines {
+		return true
+	}
+
+	for _, index := range ti.FieldsIndex {
+		if index >= len(row) {
+			// avoid `panic: runtime error: index out of range`
+			return false
+		}
+	}
+
+	return true
 }

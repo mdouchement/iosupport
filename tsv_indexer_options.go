@@ -6,6 +6,7 @@ type Options struct {
 	Fields                 []string
 	DropEmptyIndexedFields bool
 	SkipMalformattedLines  bool
+	LineThreshold          int
 }
 
 type Option func(*Options)
@@ -42,5 +43,14 @@ func DropEmptyIndexedFields() Option {
 func SkipMalformattedLines() Option {
 	return func(opts *Options) {
 		opts.SkipMalformattedLines = true
+	}
+}
+
+// LineThreshold defines the number of file's seekers. One seeker per LineThreshold.
+// The number of seekers increase the Transfer speed during sort.
+// default: 2500000
+func LineThreshold(threshold int) Option {
+	return func(opts *Options) {
+		opts.LineThreshold = threshold
 	}
 }
