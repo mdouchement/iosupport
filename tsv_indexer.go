@@ -33,6 +33,7 @@ type (
 		parser          *TsvParser
 		FieldsIndex     map[string]int
 		Lines           tsvLines
+		nbOfFields      int
 		seekers         []seeker
 		scannerFunc     func() *Scanner
 		blankComparable string
@@ -58,6 +59,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 		Options:         options,
 		FieldsIndex:     make(map[string]int),
 		scannerFunc:     scannerFunc,
+		nbOfFields:      -1,
 		seekers:         []seeker{seeker{sc, 0}},
 		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(options.Fields)),
 	}
@@ -72,6 +74,7 @@ func (ti *TsvIndexer) CloseIO() {
 // Analyze parses the TSV and generates the indexes.
 func (ti *TsvIndexer) Analyze() error {
 	if !ti.Header {
+		// Validate provided Fields with the generated header.
 		re := regexp.MustCompile(`var(\d+)`)
 		for _, field := range ti.Fields {
 			if len(re.FindStringSubmatch(field)) < 2 {
@@ -212,6 +215,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 		for i := 0; i < len(ti.Fields); i++ {
 			ti.Lines[index].Comparable = ""
 		}
+		ti.nbOfFields = len(row)
 	} else if index == 0 {
 		// Without header, fields are named like the following pattern /var\d+/
 		// \d+ is used for the index of the variable
@@ -227,6 +231,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 			ti.appendComparable(row[i-1], index) // The first row contains data (/!\ it is not an header)
 		}
 		ti.dropLastLineIfEmptyComparable()
+		ti.nbOfFields = len(row)
 	} else {
 		for _, field := range ti.Fields {
 			ti.appendComparable(row[ti.FieldsIndex[field]], index)
@@ -271,16 +276,5 @@ func (ti *TsvIndexer) findFieldsIndex(row [][]byte) error {
 }
 
 func (ti *TsvIndexer) isValidRow(row [][]byte) bool {
-	if !ti.SkipMalformattedLines {
-		return true
-	}
-
-	for _, index := range ti.FieldsIndex {
-		if index >= len(row) {
-			// avoid `panic: runtime error: index out of range`
-			return false
-		}
-	}
-
-	return true
+	return !ti.SkipMalformattedLines || ti.nbOfFields == len(row) || ti.nbOfFields == -1
 }
