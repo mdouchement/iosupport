@@ -289,9 +289,9 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 		return iosupport.NewScanner(file)
 	}
 
-	actual = iosupport.NewTsvIndexer(sc, iosupport.Header(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
+	actual = iosupport.NewTsvIndexer(sc, iosupport.HasHeader(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
 
-	expected = iosupport.NewTsvIndexer(sc, iosupport.Header(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
+	expected = iosupport.NewTsvIndexer(sc, iosupport.HasHeader(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
 	// expected.I = iosupport.NewIndexer(sc())
 	// expected.I.NbOfLines = 3
 

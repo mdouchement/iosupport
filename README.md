@@ -82,7 +82,7 @@ func main() {
   }
 
   // See tsv_indexer.go for more examples
-  indexer = iosupport.NewTsvIndexer(sc, iosupport.Header(), iosupport.Separator(","), iosupport.Fields("col2", "col1")) // scanner, headerIsPresent, separator, fieldsForSorting
+  indexer = iosupport.NewTsvIndexer(sc, iosupport.HasHeader(), iosupport.Separator(","), iosupport.Fields("col2", "col1")) // scanner, headerIsPresent, separator, fieldsForSorting
   defer indexer.CloseIO()
   err := indexer.Analyze() // creates lines index
   check(err)

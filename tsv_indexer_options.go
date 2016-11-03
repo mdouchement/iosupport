@@ -11,8 +11,15 @@ type Options struct {
 
 type Option func(*Options)
 
-// Header is present.
-func Header() Option {
+// Header is present or not.
+func Header(header bool) Option {
+	return func(opts *Options) {
+		opts.Header = header
+	}
+}
+
+// HasHeader is present.
+func HasHeader() Option {
 	return func(opts *Options) {
 		opts.Header = true
 	}
