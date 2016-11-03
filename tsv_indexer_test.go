@@ -133,15 +133,58 @@ func TestTsvIndexerAnalyzeSortWithEmptyComparableDropping(t *testing.T) {
 	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSort)
 	defer file.Close()
 
-	actual.DropEmptyLines(true)
+	actual.DropEmptyIndexedFields = true
 	actual.Fields = tsvIndexerInputFieldsAnalyzeSort
-	actual.Analyze()
+	err := actual.Analyze()
+	check(err)
 
 	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
 	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("1", "0"), 9, 7}, iosupport.TsvLine{cs("10", "0"), 16, 8}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
+
+	if len(actual.Lines) != len(expected.Lines) {
+		t.Errorf("Expected '%v' lines but got '%v'", len(expected.Lines), len(actual.Lines))
+	}
+
+	for i, expectedLine := range expected.Lines {
+		if actual.Lines[i].Offset != expectedLine.Offset {
+			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
+		}
+		if actual.Lines[i].Limit != expectedLine.Limit {
+			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
+		}
+
+		if expectedLine.Comparable != actual.Lines[i].Comparable {
+			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
+		}
+	}
+}
+
+var tsvIndexerInputAnalyzeSortWithMalformattedLines = "c1,c2,c3\n1,0,42\n10,0,42\n42,\n"
+var tsvIndexerInputFieldsAnalyzeSortWithMalformattedLines = []string{"c1", "c3"}
+
+func TestTsvIndexerAnalyzeSortWithMalformattedLines(t *testing.T) {
+	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSortWithMalformattedLines)
+	defer file.Close()
+
+	actual.DropEmptyIndexedFields = true
+	actual.SkipMalformattedLines = true
+	actual.Fields = tsvIndexerInputFieldsAnalyzeSortWithMalformattedLines
+	err := actual.Analyze()
+	check(err)
+
+	expected.Fields = tsvIndexerInputFieldsAnalyzeSortWithMalformattedLines
+	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("1", "42"), 9, 7}, iosupport.TsvLine{cs("10", "42"), 16, 8}}
+
+	t.Logf("expected.Lines: %v", expected.Lines)
+	t.Logf("actual.Lines:   %v", actual.Lines)
+
+	if len(actual.Lines) != len(expected.Lines) {
+		t.Errorf("Expected '%v' lines but got '%v'", len(expected.Lines), len(actual.Lines))
+	}
+
 	for i, expectedLine := range expected.Lines {
 		if actual.Lines[i].Offset != expectedLine.Offset {
 			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
@@ -246,9 +289,9 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 		return iosupport.NewScanner(file)
 	}
 
-	actual = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
+	actual = iosupport.NewTsvIndexer(sc, iosupport.HasHeader(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
 
-	expected = iosupport.NewTsvIndexer(sc, true, ",", tsvIndexerInputFields)
+	expected = iosupport.NewTsvIndexer(sc, iosupport.HasHeader(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
 	// expected.I = iosupport.NewIndexer(sc())
 	// expected.I.NbOfLines = 3
 

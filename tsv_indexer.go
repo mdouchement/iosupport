@@ -29,41 +29,40 @@ type (
 
 	// TsvIndexer contains all stuff for indexing and sorting columns from a TSV.
 	TsvIndexer struct {
+		*Options
 		parser          *TsvParser
-		Header          bool
-		Separator       byte
-		Fields          []string
 		FieldsIndex     map[string]int
 		Lines           tsvLines
+		nbOfFields      int
 		seekers         []seeker
 		scannerFunc     func() *Scanner
-		LineThreshold   int
-		dropEmptyLines  bool
 		blankComparable string
 	}
 )
 
 // NewTsvIndexer instanciates a new TsvIndexer.
-func NewTsvIndexer(scannerFunc func() *Scanner, header bool, separator string, fields []string) *TsvIndexer {
+func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 	sc := scannerFunc()
 	sc.Reset()
 	sc.KeepNewlineSequence(true)
+
+	options := &Options{
+		Separator:     ',',
+		LineThreshold: 2500000,
+	}
+	for _, setter := range setters {
+		setter(options)
+	}
+
 	return &TsvIndexer{
-		parser:          NewTsvParser(sc, UnescapeSeparator(separator)),
-		Header:          header,
-		Separator:       UnescapeSeparator(separator),
-		Fields:          fields,
+		parser:          NewTsvParser(sc, options.Separator),
+		Options:         options,
 		FieldsIndex:     make(map[string]int),
 		scannerFunc:     scannerFunc,
-		LineThreshold:   2500000,
+		nbOfFields:      -1,
 		seekers:         []seeker{seeker{sc, 0}},
-		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(fields)),
+		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(options.Fields)),
 	}
-}
-
-// DropEmptyLines defines if we drop or not lines where the comparable is blank.
-func (ti *TsvIndexer) DropEmptyLines(b bool) {
-	ti.dropEmptyLines = b
 }
 
 // CloseIO closes all opened IO.
@@ -75,6 +74,7 @@ func (ti *TsvIndexer) CloseIO() {
 // Analyze parses the TSV and generates the indexes.
 func (ti *TsvIndexer) Analyze() error {
 	if !ti.Header {
+		// Validate provided Fields with the generated header.
 		re := regexp.MustCompile(`var(\d+)`)
 		for _, field := range ti.Fields {
 			if len(re.FindStringSubmatch(field)) < 2 {
@@ -200,6 +200,11 @@ func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 // ------------------ //
 
 func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
+	if !ti.isValidRow(row) {
+		// Discard mal-formatted lines
+		return nil
+	}
+
 	ti.Lines = append(ti.Lines, TsvLine{"", offset, limit})
 	if index == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
@@ -210,6 +215,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 		for i := 0; i < len(ti.Fields); i++ {
 			ti.Lines[index].Comparable = ""
 		}
+		ti.nbOfFields = len(row)
 	} else if index == 0 {
 		// Without header, fields are named like the following pattern /var\d+/
 		// \d+ is used for the index of the variable
@@ -225,6 +231,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 			ti.appendComparable(row[i-1], index) // The first row contains data (/!\ it is not an header)
 		}
 		ti.dropLastLineIfEmptyComparable()
+		ti.nbOfFields = len(row)
 	} else {
 		for _, field := range ti.Fields {
 			ti.appendComparable(row[ti.FieldsIndex[field]], index)
@@ -242,7 +249,7 @@ func (ti *TsvIndexer) appendComparable(comparable []byte, index int) {
 }
 
 func (ti *TsvIndexer) dropLastLineIfEmptyComparable() {
-	if !ti.dropEmptyLines {
+	if !ti.DropEmptyIndexedFields {
 		return
 	}
 
@@ -266,4 +273,8 @@ func (ti *TsvIndexer) findFieldsIndex(row [][]byte) error {
 		return errors.New("Invalid separator or sort fields")
 	}
 	return nil
+}
+
+func (ti *TsvIndexer) isValidRow(row [][]byte) bool {
+	return !ti.SkipMalformattedLines || ti.nbOfFields == len(row) || ti.nbOfFields == -1
 }

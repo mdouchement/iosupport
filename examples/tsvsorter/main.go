@@ -88,7 +88,12 @@ func action(context *cli.Context) error {
 		}
 		return iosupport.NewScanner(file)
 	}
-	indexer := iosupport.NewTsvIndexer(sc, header, separator, fields)
+	indexer := iosupport.NewTsvIndexer(sc,
+		iosupport.Header(header),
+		iosupport.Separator(separator),
+		iosupport.Fields(fields...),
+		iosupport.SkipMalformattedLines(),
+		iosupport.DropEmptyIndexedFields())
 	defer indexer.CloseIO()
 
 	elapsed := time.Since(start)
