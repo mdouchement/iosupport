@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// COMPARABLE_SEPARATOR defines the separator added between each indexed fields.
 const COMPARABLE_SEPARATOR = "\u0000"
 
 // TsvLine describes the line's details from a TSV.
@@ -60,7 +61,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 		FieldsIndex:     make(map[string]int),
 		scannerFunc:     scannerFunc,
 		nbOfFields:      -1,
-		seekers:         []seeker{seeker{sc, 0}},
+		seekers:         []seeker{{sc, 0}},
 		blankComparable: strings.Repeat(COMPARABLE_SEPARATOR, len(options.Fields)),
 	}
 }

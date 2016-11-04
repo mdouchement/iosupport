@@ -31,7 +31,7 @@ func CountWords(str string) int {
 		return 0
 	}
 	words := len(strings.Split(str, " "))
-	words += len(strings.Split(str, string('\t'))) - 1 // -1 because string itself is aready counted
+	words += len(strings.Split(str, string('\t'))) - 1 // -1 because string itself is already counted
 	return words
 }
 

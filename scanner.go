@@ -34,7 +34,7 @@ var (
 	newLines      = []byte{CR, LF}
 )
 
-// Scanner conatins all stuff for reading a buffered file.
+// Scanner contains all stuff for reading a buffered file.
 type Scanner struct {
 	f               FileReader    // The file provided by the client.
 	r               *bufio.Reader // Buffered reader on given file.

@@ -155,83 +155,95 @@ func (tp *TsvParser) parseField(r *reader) []byte {
 		return []byte{} // Empty field
 	case tp.QuoteChar:
 		// quoted field
+		return tp.quotedField(r, field)
 
-		// Fast mode
-		// Enabled when the field is basic (e.g `...,"col 1",...')
-		si := r.indexOf(tp.Separator)
-		qci := r.indexOf(tp.QuoteChar)
-		if qci < si && qci+1 == si {
-			// qci < si -> there is no separator occurrence until the end of the field
-			// qci+1 == si -> end of quoted field detection
-			field.Write(r.readBytesTo(si))
-			return field.Bytes()
-		}
-
-		// Normal mode
-		// Enabled when the quoted field is more complex (e.g `...,"col ""is"" 1",...')
-		for {
-			b, ok = r.readByte()
-			if !ok {
-				// End of row reached
-				if !tp.LazyQuotes {
-					tp.err = tp.error(r.index, ErrQuote)
-					return nil
-				}
-				return field.Bytes()
-			}
-
-			// CSV quote escaping case
-			if b == tp.QuoteChar {
-				b, ok = r.readByte() // read next byte after the double-quote
-				if b == tp.Separator || !ok {
-					// End of field or end of row reached
-					return field.Bytes()
-				}
-				if b != tp.QuoteChar {
-					if !tp.LazyQuotes {
-						r.index--
-						tp.err = tp.error(r.index, ErrQuote)
-						return nil
-					}
-					// accept the bare quote
-					field.WriteRune('"')
-				}
-			}
-
-			field.WriteByte(b)
-		}
 	default:
 		// unquoted field
+		return tp.unquotedField(r, field, b)
+	}
+}
 
-		// Fast mode
-		// Enabled when the field does not contain a double-quote (e.g `..,col1,..')
-		si := r.indexOf(tp.Separator)
-		qci := r.indexOf(tp.QuoteChar)
-		if qci == -1 || si < qci {
-			// qci == -1 -> no longer quote char in last part of the row
-			// si < qsi -> there is no quote char until the next separator
-			field.WriteByte(b)
-			field.Write(r.readBytesTo(si))
+func (tp *TsvParser) quotedField(r *reader, field bytes.Buffer) []byte {
+	var b byte
+	var ok bool
+
+	// Fast mode
+	// Enabled when the field is basic (e.g `...,"col 1",...')
+	si := r.indexOf(tp.Separator)
+	qci := r.indexOf(tp.QuoteChar)
+	if qci < si && qci+1 == si {
+		// qci < si -> there is no separator occurrence until the end of the field
+		// qci+1 == si -> end of quoted field detection
+		field.Write(r.readBytesTo(si))
+		return field.Bytes()
+	}
+
+	// Normal mode
+	// Enabled when the quoted field is more complex (e.g `...,"col ""is"" 1",...')
+	for {
+		b, ok = r.readByte()
+		if !ok {
+			// End of row reached
+			if !tp.LazyQuotes {
+				tp.err = tp.error(r.index, ErrQuote)
+				return nil
+			}
 			return field.Bytes()
 		}
 
-		// At this point, a quote char is present in the current unquoted field (e.g `col"5')
-		// So we will parse and raise an error if malformatted TSV
-
-		// Normal mode
-		// Enabled when the field contains a double-quote or not
-		for {
-			field.WriteByte(b)
-			b, ok = r.readByte()
+		// CSV quote escaping case
+		if b == tp.QuoteChar {
+			b, ok = r.readByte() // read next byte after the double-quote
 			if b == tp.Separator || !ok {
 				// End of field or end of row reached
 				return field.Bytes()
 			}
-
-			if !tp.LazyQuotes && b == tp.QuoteChar {
-				tp.err = tp.error(r.index, ErrBareQuote)
-				return nil
+			if b != tp.QuoteChar {
+				if !tp.LazyQuotes {
+					r.index--
+					tp.err = tp.error(r.index, ErrQuote)
+					return nil
+				}
+				// accept the bare quote
+				field.WriteRune('"')
 			}
+		}
+
+		field.WriteByte(b)
+	}
+}
+
+func (tp *TsvParser) unquotedField(r *reader, field bytes.Buffer, b byte) []byte {
+	var ok bool
+
+	// Fast mode
+	// Enabled when the field does not contain a double-quote (e.g `..,col1,..')
+	si := r.indexOf(tp.Separator)
+	qci := r.indexOf(tp.QuoteChar)
+	if qci == -1 || si < qci {
+		// qci == -1 -> no longer quote char in last part of the row
+		// si < qsi -> there is no quote char until the next separator
+		field.WriteByte(b)
+		field.Write(r.readBytesTo(si))
+		return field.Bytes()
+	}
+
+	// At this point, a quote char is present in the current unquoted field (e.g `col"5')
+	// So we will parse and raise an error if malformatted TSV
+
+	// Normal mode
+	// Enabled when the field contains a double-quote or not
+	for {
+		field.WriteByte(b)
+		b, ok = r.readByte()
+		if b == tp.Separator || !ok {
+			// End of field or end of row reached
+			return field.Bytes()
+		}
+
+		if !tp.LazyQuotes && b == tp.QuoteChar {
+			tp.err = tp.error(r.index, ErrBareQuote)
+			return nil
 		}
 	}
 }
@@ -274,7 +286,7 @@ func (r *reader) readBytesTo(i int) []byte {
 	return r.row[r.index:(r.index + i)]
 }
 
-// returns the index of the next occurence of b or -1 if b is not present
+// returns the index of the next occurrence of b or -1 if b is not present
 func (r *reader) indexOf(b byte) int {
 	return bytes.IndexByte(r.row[r.index:], b)
 }

@@ -33,12 +33,12 @@ func TestTsvParser(t *testing.T) {
 
 	var i int
 	expectedRows := [][]string{
-		[]string{"c1", "c,2", "c3"},
-		[]string{"val45", "val2", "val3"},
-		[]string{"val40", "val42 \"the\" best", "val6"},
-		[]string{"v1", "", "v3"},
-		[]string{"v4", "v5", ""},
-		[]string{"a", "b", "c"},
+		{"c1", "c,2", "c3"},
+		{"val45", "val2", "val3"},
+		{"val40", "val42 \"the\" best", "val6"},
+		{"v1", "", "v3"},
+		{"v4", "v5", ""},
+		{"a", "b", "c"},
 	}
 	for parser.ScanRow() {
 		check(parser.Err())
