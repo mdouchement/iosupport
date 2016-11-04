@@ -1,6 +1,7 @@
 # iosupport
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/mdouchement/iosupport)
 [![Go Report Card](https://goreportcard.com/badge/github.com/mdouchement/iosupport)](https://goreportcard.com/report/github.com/mdouchement/iosupport)
+[![License](https://img.shields.io/github/license/mdouchement/iosupport.svg)](http://opensource.org/licenses/MIT)
 
 It provides some io supports for GoLang:
 - Read large files (line length and large amount of lines)
