@@ -1,5 +1,6 @@
 package iosupport
 
+// Options contains information for TSV interations.
 type Options struct {
 	Header                 bool
 	Separator              byte
@@ -9,6 +10,7 @@ type Options struct {
 	LineThreshold          int
 }
 
+// Option is a function used in the Functional Options pattern.
 type Option func(*Options)
 
 // Header is present or not.

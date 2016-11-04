@@ -55,7 +55,7 @@ func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
 	}
 
 	expected.Fields = tsvIndexerInputFieldsWithoutHeader
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{cs("val2"), 0, 0}, iosupport.TsvLine{cs("val5"), 0, 0}, iosupport.TsvLine{cs("val8"), 0, 0}}
+	expected.Lines = []iosupport.TsvLine{{cs("val2"), 0, 0}, {cs("val5"), 0, 0}, {cs("val8"), 0, 0}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -77,7 +77,7 @@ func TestTsvIndexerAnalyzeWithEmptyCells(t *testing.T) {
 	actual.Analyze()
 
 	expected.Fields = tsvIndexerInputFieldsWithEmtyCells
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs(""), 9, 12}, iosupport.TsvLine{cs("val6"), 21, 16}}
+	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs(""), 9, 12}, {cs("val6"), 21, 16}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -107,10 +107,10 @@ func TestTsvIndexerAnalyzeSort(t *testing.T) {
 
 	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
 	expected.Lines = []iosupport.TsvLine{
-		iosupport.TsvLine{"", 0, 9},
-		iosupport.TsvLine{cs("1", "0"), 9, 7},
-		iosupport.TsvLine{cs("10", "0"), 16, 8},
-		iosupport.TsvLine{cs("", ""), 24, 5},
+		{"", 0, 9},
+		{cs("1", "0"), 9, 7},
+		{cs("10", "0"), 16, 8},
+		{cs("", ""), 24, 5},
 	}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
@@ -139,7 +139,7 @@ func TestTsvIndexerAnalyzeSortWithEmptyComparableDropping(t *testing.T) {
 	check(err)
 
 	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("1", "0"), 9, 7}, iosupport.TsvLine{cs("10", "0"), 16, 8}}
+	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("1", "0"), 9, 7}, {cs("10", "0"), 16, 8}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -176,7 +176,7 @@ func TestTsvIndexerAnalyzeSortWithMalformattedLines(t *testing.T) {
 	check(err)
 
 	expected.Fields = tsvIndexerInputFieldsAnalyzeSortWithMalformattedLines
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("1", "42"), 9, 7}, iosupport.TsvLine{cs("10", "42"), 16, 8}}
+	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("1", "42"), 9, 7}, {cs("10", "42"), 16, 8}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -244,7 +244,7 @@ func TestTsvSort(t *testing.T) {
 	check(err)
 	actual.Sort()
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}}
+	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("val2", "val40"), 25, 16}, {cs("val2", "val45"), 9, 16}}
 
 	t.Logf("expected.Lines: %v", expected.Lines)
 	t.Logf("actual.Lines:   %v", actual.Lines)
@@ -295,7 +295,7 @@ func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexe
 	// expected.I = iosupport.NewIndexer(sc())
 	// expected.I.NbOfLines = 3
 
-	expected.Lines = []iosupport.TsvLine{iosupport.TsvLine{"", 0, 9}, iosupport.TsvLine{cs("val2", "val45"), 9, 16}, iosupport.TsvLine{cs("val2", "val40"), 25, 16}}
+	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("val2", "val45"), 9, 16}, {cs("val2", "val40"), 25, 16}}
 	return
 }
 

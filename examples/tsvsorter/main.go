@@ -114,7 +114,7 @@ func action(context *cli.Context) error {
 	elapsed = time.Since(sstart)
 	fmt.Printf("Sort took %s\n\n", elapsed)
 
-	fmt.Println("Transfering...")
+	fmt.Println("Transferring...")
 	ofile, err := create(outputPath)
 	if err != nil {
 		panic(err)
