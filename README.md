@@ -99,3 +99,47 @@ func check(err error) {
   }
 }
 ```
+
+## Tests
+
+- Installation
+
+```sh
+$ go get github.com/onsi/ginkgo/ginkgo
+$ go get github.com/onsi/gomega
+```
+
+_ Run tests
+
+```sh
+# One shot
+$ ginko
+
+# With watch
+$ ginkgo watch
+```
+
+- Generate package test file
+
+```sh
+$ ginkgo bootstrap # set up a new ginkgo suite
+$ ginkgo generate my_file.go # will create a sample test file.  edit this file and add your tests then...
+```
+
+- Benchmarks
+
+```sh
+$ go test -run=NONE -bench=ParseFields
+```
+
+## License
+
+**MIT**
+
+## Contributing
+
+1. Fork it
+2. Create your feature branch (git checkout -b my-new-feature)
+3. Commit your changes (git commit -am 'Add some feature')
+5. Push to the branch (git push origin my-new-feature)
+6. Create new Pull Request

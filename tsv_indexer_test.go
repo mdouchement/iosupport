@@ -1,309 +1,167 @@
 package iosupport_test
 
 import (
-	"bytes"
-	"io/ioutil"
-	"os"
-	"testing"
+	. "github.com/mdouchement/iosupport"
+	"github.com/mdouchement/stringio"
 
-	"github.com/mdouchement/iosupport"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-var tsvIndexerInput = "c1,c2,c3\nval45,val2,val3\nval40,val2,val6\n"
-var tsvIndexerInputFields = []string{"c2", "c1"}
+var _ = Describe("TsvIndexer", func() {
+	Describe("#Analyze", func() {
+		Context("with a well formatted TSV", func() {
+			var sc = scanner("c1,c2,c3\nval45,val2,val3\nval40,val2,val6\n")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c2", "c1"))
 
-func TestTsvIndexerAnalyze(t *testing.T) {
-	file, actual, expected := prepareTsvIndexer(tsvIndexerInput)
-	defer file.Close()
+			err := subject.Analyze()
+			check(err)
 
-	actual.Analyze()
+			It("indexes the TSV", func() {
+				Expect(subject.Lines).To(TlConsistOf(tl{"", 0, 9}, tl{cs("val2", "val45"), 9, 16}, tl{cs("val2", "val40"), 25, 16}))
+			})
+		})
 
-	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines:   %v", actual.Lines)
-	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Offset != expectedLine.Offset {
-			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
-		}
-		if actual.Lines[i].Limit != expectedLine.Limit {
-			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
-		}
+		Context("when the TSV has no header", func() {
+			Context("and sort fields are invalid", func() {
+				var sc = scanner("val1,val2,val3\nval4,val5,val6\nval7,val8,val9\n")
+				var subject = NewTsvIndexer(sc, Separator(","), Fields("c2"))
+				var err error
 
-		if expectedLine.Comparable != actual.Lines[i].Comparable {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
-		}
-	}
-}
+				err = subject.Analyze()
 
-var tsvIndexerInputWithoutHeader = "val1,val2,val3\nval4,val5,val6\nval7,val8,val9\n"
-var tsvIndexerInputFieldsWithoutHeader = []string{"var2"}
+				It("does not index the TSV", func() {
+					Expect(subject.Lines).To(HaveLen(0))
+				})
 
-func TestTsvIndexerAnalyzeWithoutHeader(t *testing.T) {
-	file, actual, expected := prepareTsvIndexer(tsvIndexerInputWithoutHeader)
-	defer file.Close()
+				It("catches an error", func() {
+					if err == nil {
+						Fail("error is nil")
+					}
+					Expect(err.Error()).To(Equal("Field c2 do not match with pattern /var\\d+/"))
+				})
+			})
 
-	actual.Header = false
+			Context("and sort fields are valid", func() {
+				var sc = scanner("val1,val2,val3\nval4,val5,val6\nval7,val8,val9\n")
+				var subject = NewTsvIndexer(sc, Separator(","), Fields("var2"))
 
-	// When fields are invalid
-	if err := actual.Analyze(); err == nil || err.Error() != "Field c2 do not match with pattern /var\\d+/" {
-		t.Error("Expect Analyze to returns an errro")
-	}
-	actual.Fields = tsvIndexerInputFieldsWithoutHeader
+				err := subject.Analyze()
+				check(err)
 
-	// When fields have a valid format
-	if err := actual.Analyze(); err != nil {
-		t.Errorf("Expect Analyze to not return an error but returns: %v", err)
-	}
+				It("indexes the TSV", func() {
+					Expect(subject.Lines).To(TlConsistOf(tl{cs("val2"), 0, 15}, tl{cs("val5"), 15, 15}, tl{cs("val8"), 30, 15}))
+				})
+			})
+		})
 
-	expected.Fields = tsvIndexerInputFieldsWithoutHeader
-	expected.Lines = []iosupport.TsvLine{{cs("val2"), 0, 0}, {cs("val5"), 0, 0}, {cs("val8"), 0, 0}}
+		Context("when the TSV has empty cells", func() {
+			var sc = scanner("c1,c2,c3\nval45,val2,\nval40,val2,val6\n")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c3"))
 
-	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines:   %v", actual.Lines)
-	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Comparable != expectedLine.Comparable {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
-		}
-	}
-}
+			err := subject.Analyze()
+			check(err)
 
-var tsvIndexerInputWithEmtyCells = "c1,c2,c3\nval45,val2,\nval40,val2,val6\n"
-var tsvIndexerInputFieldsWithEmtyCells = []string{"c3"}
+			It("indexes the TSV", func() {
+				Expect(subject.Lines).To(TlConsistOf(tl{"", 0, 9}, tl{cs(""), 9, 12}, tl{cs("val6"), 21, 16}))
+			})
+		})
 
-func TestTsvIndexerAnalyzeWithEmptyCells(t *testing.T) {
-	file, actual, expected := prepareTsvIndexer(tsvIndexerInputWithEmtyCells)
-	defer file.Close()
+		Context("when empty indexed fields are dropped", func() {
+			var sc = scanner("c1,c2,c3\n1,0,42\n10,0,42\n,,42\n")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c1", "c2"), DropEmptyIndexedFields())
 
-	actual.Fields = tsvIndexerInputFieldsWithEmtyCells
-	actual.Analyze()
+			err := subject.Analyze()
+			check(err)
 
-	expected.Fields = tsvIndexerInputFieldsWithEmtyCells
-	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs(""), 9, 12}, {cs("val6"), 21, 16}}
+			It("indexes the TSV", func() {
+				Expect(subject.Lines).To(TlConsistOf(tl{"", 0, 9}, tl{cs("1", "0"), 9, 7}, tl{cs("10", "0"), 16, 8}))
+			})
+		})
 
-	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines:   %v", actual.Lines)
-	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Offset != expectedLine.Offset {
-			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
-		}
-		if actual.Lines[i].Limit != expectedLine.Limit {
-			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
-		}
+		Context("when mal-formatted lines are skipped", func() {
+			var sc = scanner("c1,c2,c3\n1,0,42\n10,0,42\n42,\n")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c1", "c3"), SkipMalformattedLines())
 
-		if expectedLine.Comparable != actual.Lines[i].Comparable {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
-		}
-	}
-}
+			err := subject.Analyze()
+			check(err)
 
-var tsvIndexerInputAnalyzeSort = "c1,c2,c3\n1,0,42\n10,0,42\n,,42\n"
-var tsvIndexerInputFieldsAnalyzeSort = []string{"c1", "c2"}
+			It("indexes the TSV", func() {
+				Expect(subject.Lines).To(TlConsistOf(tl{"", 0, 9}, tl{cs("1", "42"), 9, 7}, tl{cs("10", "42"), 16, 8}))
+			})
+		})
 
-func TestTsvIndexerAnalyzeSort(t *testing.T) {
-	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSort)
-	defer file.Close()
+		Context("when there are bad sort fields", func() {
+			var sc = scanner("c1,c2,c3\nval45,val2,val3\nval40,val2,val6\n")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("___c1", "___c4"))
+			var err error
 
-	actual.Fields = tsvIndexerInputFieldsAnalyzeSort
-	actual.Analyze()
+			err = subject.Analyze()
 
-	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
-	expected.Lines = []iosupport.TsvLine{
-		{"", 0, 9},
-		{cs("1", "0"), 9, 7},
-		{cs("10", "0"), 16, 8},
-		{cs("", ""), 24, 5},
-	}
+			It("catches an error", func() {
+				if err == nil {
+					Fail("error is nil")
+				}
+				Expect(err.Error()).To(Equal("Invalid separator or sort fields"))
+			})
+		})
 
-	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines:   %v", actual.Lines)
-	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Offset != expectedLine.Offset {
-			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
-		}
-		if actual.Lines[i].Limit != expectedLine.Limit {
-			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
-		}
+		Context("when the file is empty", func() {
+			var sc = scanner("")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c1", "c4"))
 
-		if expectedLine.Comparable != actual.Lines[i].Comparable {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
-		}
-	}
-}
+			err := subject.Analyze()
+			check(err)
 
-func TestTsvIndexerAnalyzeSortWithEmptyComparableDropping(t *testing.T) {
-	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSort)
-	defer file.Close()
+			It("does not index the TSV", func() {
+				Expect(subject.Lines).To(HaveLen(0))
+			})
+		})
+	})
 
-	actual.DropEmptyIndexedFields = true
-	actual.Fields = tsvIndexerInputFieldsAnalyzeSort
-	err := actual.Analyze()
-	check(err)
+	Describe("#Sort", func() {
+		Context("with a well formatted TSV", func() {
+			var sc = scanner("c1,c2,c3\n1,0,42\n10,0,42\n,,42\n")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c1", "c2"))
 
-	expected.Fields = tsvIndexerInputFieldsAnalyzeSort
-	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("1", "0"), 9, 7}, {cs("10", "0"), 16, 8}}
+			err := subject.Analyze()
+			check(err)
+			subject.Sort()
 
-	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines:   %v", actual.Lines)
+			It("sorts the index", func() {
+				Expect(subject.Lines).To(TlConsistOf(tl{"", 0, 9}, tl{cs("", ""), 24, 5}, tl{cs("1", "0"), 9, 7}, tl{cs("10", "0"), 16, 8}))
+			})
+		})
 
-	if len(actual.Lines) != len(expected.Lines) {
-		t.Errorf("Expected '%v' lines but got '%v'", len(expected.Lines), len(actual.Lines))
-	}
+		Context("when the file is empty", func() {
+			var sc = scanner("")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c1", "c4"))
 
-	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Offset != expectedLine.Offset {
-			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
-		}
-		if actual.Lines[i].Limit != expectedLine.Limit {
-			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
-		}
+			err := subject.Analyze()
+			check(err)
+			subject.Sort()
 
-		if expectedLine.Comparable != actual.Lines[i].Comparable {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
-		}
-	}
-}
+			It("does not index the TSV", func() {
+				Expect(subject.Lines).To(HaveLen(0))
+			})
+		})
+	})
 
-var tsvIndexerInputAnalyzeSortWithMalformattedLines = "c1,c2,c3\n1,0,42\n10,0,42\n42,\n"
-var tsvIndexerInputFieldsAnalyzeSortWithMalformattedLines = []string{"c1", "c3"}
+	Describe("#Transfer", func() {
+		Context("with a well formatted TSV", func() {
+			var sc = scanner("c1,c2,c3\n1,0,42\n10,0,42\n,,42\n")
+			var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c1", "c2"))
+			var output = stringio.New()
 
-func TestTsvIndexerAnalyzeSortWithMalformattedLines(t *testing.T) {
-	file, actual, expected := prepareTsvIndexer(tsvIndexerInputAnalyzeSortWithMalformattedLines)
-	defer file.Close()
+			err := subject.Analyze()
+			check(err)
+			subject.Sort()
+			err = subject.Transfer(output)
+			check(err)
 
-	actual.DropEmptyIndexedFields = true
-	actual.SkipMalformattedLines = true
-	actual.Fields = tsvIndexerInputFieldsAnalyzeSortWithMalformattedLines
-	err := actual.Analyze()
-	check(err)
-
-	expected.Fields = tsvIndexerInputFieldsAnalyzeSortWithMalformattedLines
-	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("1", "42"), 9, 7}, {cs("10", "42"), 16, 8}}
-
-	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines:   %v", actual.Lines)
-
-	if len(actual.Lines) != len(expected.Lines) {
-		t.Errorf("Expected '%v' lines but got '%v'", len(expected.Lines), len(actual.Lines))
-	}
-
-	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Offset != expectedLine.Offset {
-			t.Errorf("Expected offset '%v' but got '%v' at index %v", expectedLine.Offset, actual.Lines[i].Offset, i)
-		}
-		if actual.Lines[i].Limit != expectedLine.Limit {
-			t.Errorf("Expected limit '%v' but got '%v' at index %v", expectedLine.Limit, actual.Lines[i].Limit, i)
-		}
-
-		if expectedLine.Comparable != actual.Lines[i].Comparable {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
-		}
-	}
-}
-
-var emptyTsvIndexerInput = ""
-
-func TestTsvIndexerAnalyzeHasBadFields(t *testing.T) {
-	file, actual, _ := prepareTsvIndexer(tsvIndexerInput)
-	defer file.Close()
-
-	actual.Fields = []string{"___c2", "___c1"}
-	err := actual.Analyze()
-
-	if err.Error() != "Invalid separator or sort fields" {
-		t.Errorf("Expected 'Invalid separator or sort fields' but got '%s'", err.Error())
-	}
-}
-
-func TestTsvIndexerAnalyzeIsEmpty(t *testing.T) {
-	file, actual, _ := prepareTsvIndexer(emptyTsvIndexerInput)
-	defer file.Close()
-
-	actual.Analyze()
-
-	if len(actual.Lines) > 0 {
-		t.Errorf("Expected '%v' to be empty", actual.Lines)
-	}
-}
-
-func TestTsvIndexerSortIsEmpty(t *testing.T) {
-	file, actual, _ := prepareTsvIndexer(emptyTsvIndexerInput)
-	defer file.Close()
-
-	actual.Analyze()
-	actual.Sort()
-
-	if len(actual.Lines) > 0 {
-		t.Errorf("Expected '%v' to be empty", actual.Lines)
-	}
-}
-
-func TestTsvSort(t *testing.T) {
-	file, actual, expected := prepareTsvIndexer(tsvIndexerInput)
-	defer file.Close()
-
-	err := actual.Analyze()
-	check(err)
-	actual.Sort()
-
-	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("val2", "val40"), 25, 16}, {cs("val2", "val45"), 9, 16}}
-
-	t.Logf("expected.Lines: %v", expected.Lines)
-	t.Logf("actual.Lines:   %v", actual.Lines)
-	for i, expectedLine := range expected.Lines {
-		if actual.Lines[i].Comparable != expectedLine.Comparable {
-			t.Errorf("Expected '%v' but got '%v' at index %v", expectedLine.Comparable, actual.Lines[i].Comparable, i)
-		}
-	}
-}
-
-func TestTsvTransfer(t *testing.T) {
-	ifile, current, _ := prepareTsvIndexer(tsvIndexerInput)
-	defer ifile.Close()
-	ofile, err := ioutil.TempFile("/tmp", "tsv_transfer")
-	check(err)
-	defer ofile.Close()
-
-	current.Analyze()
-	current.Sort()
-	current.Transfer(ofile)
-
-	buff, err := ioutil.ReadFile(ofile.Name())
-	check(err)
-	actual := string(buff)
-	expected := "c1,c2,c3\nval40,val2,val6\nval45,val2,val3\n"
-	if actual != expected {
-		t.Errorf("Expected:\n%v but got:\n%v", expected, actual)
-	}
-}
-
-// ----------------------- //
-// Helpers                 //
-// ----------------------- //
-
-func prepareTsvIndexer(input string) (file *os.File, actual *iosupport.TsvIndexer, expected *iosupport.TsvIndexer) {
-	path := generateTmpFile(input)
-	var err error
-
-	sc := func() *iosupport.Scanner {
-		file, err = os.Open(path)
-		check(err)
-		return iosupport.NewScanner(file)
-	}
-
-	actual = iosupport.NewTsvIndexer(sc, iosupport.HasHeader(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
-
-	expected = iosupport.NewTsvIndexer(sc, iosupport.HasHeader(), iosupport.Separator(","), iosupport.Fields(tsvIndexerInputFields...))
-	// expected.I = iosupport.NewIndexer(sc())
-	// expected.I.NbOfLines = 3
-
-	expected.Lines = []iosupport.TsvLine{{"", 0, 9}, {cs("val2", "val45"), 9, 16}, {cs("val2", "val40"), 25, 16}}
-	return
-}
-
-func cs(cols ...string) string {
-	var buf bytes.Buffer
-	for _, col := range cols {
-		buf.WriteString(col)
-		buf.WriteString(iosupport.COMPARABLE_SEPARATOR)
-	}
-	return buf.String()
-}
+			It("sorts the index", func() {
+				Expect(output.GetValueString()).To(Equal("c1,c2,c3\n,,42\n1,0,42\n10,0,42\n"))
+			})
+		})
+	})
+})
