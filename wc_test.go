@@ -1,71 +1,66 @@
 package iosupport_test
 
 import (
-	"os"
-	"testing"
+	. "github.com/mdouchement/iosupport"
+	"github.com/mdouchement/stringio"
 
-	"github.com/mdouchement/iosupport"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-var wordCountInput = "The first line.\nThe secönd line :)\n\n"
+var _ = Describe("WC", func() {
+	Describe("#Perform", func() {
+		var file = stringio.NewFromString("The first line.\nThe secönd line :)\n\n")
 
-func TestWordCountPerform(t *testing.T) {
-	path := generateTmpFile(wordCountInput)
-	file, err := os.Open(path)
-	check(err)
-	defer file.Close()
+		Context("with default options", func() {
+			var subject = NewWordCount(file)
 
-	wc := iosupport.NewWordCount(file)
-	err = wc.Perform()
-	check(err)
+			file.Seek(0, 0)
+			err := subject.Perform()
+			check(err)
 
-	if wc.Bytes != 0 {
-		// Bytes counter not actived
-		t.Errorf("Invalid number of bytes. Expected 0 but got %v", wc.Bytes)
-	}
+			It("does not count bytes", func() {
+				Expect(subject.Bytes).To(Equal(0))
+			})
 
-	if wc.Chars != 36 {
-		t.Errorf("Invalid number of chars. Expected 36 but got %v", wc.Chars)
-	}
+			It("counts characters", func() {
+				Expect(subject.Chars).To(Equal(36))
+			})
 
-	if wc.Words != 7 {
-		t.Errorf("Invalid number of words. Expected 7 but got %v", wc.Words)
-	}
+			It("counts words", func() {
+				Expect(subject.Words).To(Equal(7))
+			})
 
-	if wc.Lines != 3 {
-		t.Errorf("Invalid number of lines. Expected 3 but got %v", wc.Lines)
-	}
-}
+			It("counts lines", func() {
+				Expect(subject.Lines).To(Equal(3))
+			})
+		})
 
-func TestWordCountWithCustomOptions(t *testing.T) {
-	path := generateTmpFile(wordCountInput)
-	file, err := os.Open(path)
-	check(err)
-	defer file.Close()
+		Context("with custom options", func() {
+			var subject = NewWordCount(file)
 
-	wc := iosupport.NewWordCount(file)
-	o := iosupport.NewWordCountOptions()
-	o.CountByte = true
-	wc.Opts = o
-	err = wc.Perform()
-	check(err)
+			file.Seek(0, 0)
+			opts := NewWordCountOptions()
+			opts.CountByte = true
+			subject.Opts = opts
+			err := subject.Perform()
+			check(err)
 
-	if wc.Bytes != 37 {
-		t.Errorf("Invalid number of bytes. Expected 37 but got %v", wc.Bytes)
-	}
+			It("counts bytes", func() {
+				Expect(subject.Bytes).To(Equal(37))
+			})
 
-	if wc.Chars != 0 {
-		// Chars counter not actived
-		t.Errorf("Invalid number of chars. Expected 0 but got %v", wc.Chars)
-	}
+			It("does not count characters", func() {
+				Expect(subject.Chars).To(Equal(0))
+			})
 
-	if wc.Words != 0 {
-		// Words counter not actived
-		t.Errorf("Invalid number of words. Expected 0 but got %v", wc.Words)
-	}
+			It("does not count words", func() {
+				Expect(subject.Words).To(Equal(0))
+			})
 
-	if wc.Lines != 0 {
-		// Lines counter not actived
-		t.Errorf("Invalid number of lines. Expected 0 but got %v", wc.Lines)
-	}
-}
+			It("does not count lines", func() {
+				Expect(subject.Words).To(Equal(0))
+			})
+		})
+	})
+})
