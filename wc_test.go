@@ -2,7 +2,7 @@ package iosupport_test
 
 import (
 	. "github.com/mdouchement/iosupport"
-	"github.com/rsniezynski/stringio"
+	"github.com/mdouchement/stringio"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
