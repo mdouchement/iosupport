@@ -84,6 +84,12 @@ func (ti *TsvIndexer) Analyze() error {
 		}
 	}
 	for ti.parser.ScanRow() {
+		if len(ti.Lines)%10000 == 0 {
+			mem := GetMemoryUsage()
+			if mem != nil {
+				fmt.Printf("Sys %dMB - HeapSys %dMB - HeapAlloc %dMB - HeapIdle %dMB - HeapReleased %dMB\n", mem.SysKb/1000, mem.HeapSysKb/1000, mem.HeapAllocKb/1000, mem.HeapIdleKb/1000, mem.HeapReleasedKb/1000)
+			}
+		}
 		if ti.parser.Err() != nil {
 			return ti.parser.Err()
 		}
