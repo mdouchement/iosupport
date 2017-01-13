@@ -9,6 +9,7 @@ apk add --update --no-cache git
 echo '##### Installing dependencies'
 go get github.com/onsi/ginkgo/ginkgo
 go get github.com/onsi/gomega
+go get github.com/golang/mock/gomock
 go get -d -t -v ./...
 
 echo '##### Running specs'

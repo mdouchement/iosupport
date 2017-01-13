@@ -20,7 +20,7 @@ type (
 		Offset     uint64
 		Limit      uint32
 	}
-	tsvLines []TsvLine
+	TsvLines []TsvLine
 
 	// Internal use
 	seeker struct {
@@ -33,7 +33,7 @@ type (
 		*Options
 		parser          *TsvParser
 		FieldsIndex     map[string]int
-		Lines           tsvLines
+		Lines           TsvLines
 		nbOfFields      int
 		seekers         []seeker
 		scannerFunc     func() *Scanner
@@ -50,6 +50,7 @@ func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 	options := &Options{
 		Separator:     ',',
 		LineThreshold: 2500000,
+		Swapper:       NewNullSwapper(),
 	}
 	for _, setter := range setters {
 		setter(options)
@@ -84,20 +85,17 @@ func (ti *TsvIndexer) Analyze() error {
 		}
 	}
 	for ti.parser.ScanRow() {
-		if len(ti.Lines)%10000 == 0 {
-			mem := GetMemoryUsage()
-			if mem != nil {
-				fmt.Printf("Sys %dMB - HeapSys %dMB - HeapAlloc %dMB - HeapIdle %dMB - HeapReleased %dMB\n", mem.SysKb/1000, mem.HeapSysKb/1000, mem.HeapAllocKb/1000, mem.HeapIdleKb/1000, mem.HeapReleasedKb/1000)
-			}
-		}
 		if ti.parser.Err() != nil {
 			return ti.parser.Err()
 		}
-		err := ti.tsvLineAppender(ti.parser.Row(), len(ti.Lines), ti.parser.Offset(), ti.parser.Limit())
+		err := ti.tsvLineAppender(ti.parser.Row(), len(ti.Lines), ti.parser.Line(), ti.parser.Offset(), ti.parser.Limit())
 		if err != nil {
 			return err
 		}
+
+		ti.tryToSwap(false)
 	}
+	ti.tryToSwap(true)
 	ti.parser.Reset()
 	ti.createSeekers()
 	return nil
@@ -115,7 +113,17 @@ func (ti *TsvIndexer) Transfer(output FileWriter) error {
 	n := ns[len(ns)-1]
 
 	// For all sorted lines contained in the TSV
-	for _, line := range ti.Lines {
+	it := ti.Swapper.ReadIterator()
+	if it.Error() != nil {
+		return it.Error()
+	}
+
+	for it.Next() {
+		if it.Error() != nil {
+			return it.Error()
+		}
+		line := it.Value()
+
 		token, err := ti.selectSeeker(line.Offset).ReadAt(int64(line.Offset), int(line.Limit)) // Reads the current line
 		if err != nil {
 			return err
@@ -133,6 +141,7 @@ func (ti *TsvIndexer) Transfer(output FileWriter) error {
 		return err
 	}
 	ti.releaseSeekers()
+	ti.Swapper.EraseAll()
 	return nil
 }
 
@@ -140,16 +149,20 @@ func (ti *TsvIndexer) Transfer(output FileWriter) error {
 // Sort stuff         //
 // ------------------ //
 
-func (slice tsvLines) Len() int {
+func (slice TsvLines) Len() int {
 	return len(slice)
 }
 
-func (slice tsvLines) Less(i, j int) bool {
-	return slice[i].Comparable < slice[j].Comparable
+func (slice TsvLines) Less(i, j int) bool {
+	return CompareFunc(slice[i], slice[j])
 }
 
-func (slice tsvLines) Swap(i, j int) {
+func (slice TsvLines) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
+}
+
+var CompareFunc = func(i, j TsvLine) bool {
+	return i.Comparable < j.Comparable
 }
 
 // ------------------ //
@@ -206,14 +219,14 @@ func (ti *TsvIndexer) selectSeeker(offset uint64) seeker {
 // Analyze stuff      //
 // ------------------ //
 
-func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, limit uint32) error {
+func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, fileline int, offset uint64, limit uint32) error {
 	if !ti.isValidRow(row) {
 		// Discard mal-formatted lines
 		return nil
 	}
 
 	ti.Lines = append(ti.Lines, TsvLine{"", offset, limit})
-	if index == 0 && ti.Header {
+	if fileline == 0 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
 			return err
 		}
@@ -223,7 +236,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, offset uint64, li
 			ti.Lines[index].Comparable = ""
 		}
 		ti.nbOfFields = len(row)
-	} else if index == 0 {
+	} else if fileline == 0 {
 		// Without header, fields are named like the following pattern /var\d+/
 		// \d+ is used for the index of the variable
 		//
@@ -284,4 +297,24 @@ func (ti *TsvIndexer) findFieldsIndex(row [][]byte) error {
 
 func (ti *TsvIndexer) isValidRow(row [][]byte) bool {
 	return !ti.SkipMalformattedLines || ti.nbOfFields == len(row) || ti.nbOfFields == -1
+}
+
+func (ti *TsvIndexer) tryToSwap(force bool) error {
+	if force && !ti.Swapper.HasSwapped() {
+		ti.Swapper.KeepWithoutSwap(ti.Lines)
+		return nil
+	}
+
+	if force || ti.Swapper.IsTimeToSwap(ti.Lines) {
+		ti.Sort()
+		if err := ti.Swapper.Swap(ti.Lines); err != nil {
+			return err
+		}
+		if force {
+			ti.Lines = nil // Freeing
+		} else {
+			ti.Lines = ti.Lines[:0] // reuse current allocated array
+		}
+	}
+	return nil
 }

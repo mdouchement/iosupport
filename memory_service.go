@@ -29,8 +29,7 @@ type (
 )
 
 var (
-	mu               sync.Mutex
-	isMemoryTracking = false
+	initOnce sync.Once
 	// when we're tracking memory, this is the channel we use to request the most recent memory statistics
 	proxyStatsRequestChannel chan chan []TimedMemStats
 	// when we're tracking memory, this is the quit channel for it - if we close it, memory profiling stops
@@ -38,19 +37,14 @@ var (
 )
 
 func initializeMemoryTracking() {
-	mu.Lock()
-	defer mu.Unlock()
-	if !isMemoryTracking {
-		proxyStatsRequestChannel = make(chan chan []TimedMemStats)
-		TrackMemoryStatistics(60*2, 500, proxyStatsRequestChannel, memStatsQuitChannel)
-		time.Sleep(500 * time.Millisecond)
-		isMemoryTracking = true
-	}
+	proxyStatsRequestChannel = make(chan chan []TimedMemStats)
+	TrackMemoryStatistics(60*2, 1000, proxyStatsRequestChannel, memStatsQuitChannel)
+	time.Sleep(500 * time.Millisecond)
 }
 
 // GetMemoryUsage returns the latest read memory usage.
-func GetMemoryUsage() *HeapMemStat {
-	initializeMemoryTracking()
+var GetMemoryUsage = func() *HeapMemStat {
+	initOnce.Do(initializeMemoryTracking)
 
 	// Fetch the most recent memory statistics
 	responseChannel := make(chan []TimedMemStats)
@@ -58,7 +52,7 @@ func GetMemoryUsage() *HeapMemStat {
 	memUsages := TimedMemStatsToHeapMemStats(<-responseChannel)
 	l := len(memUsages)
 	if l == 0 {
-		return nil
+		return &HeapMemStat{}
 	} else {
 		return memUsages[l-1]
 	}
@@ -94,8 +88,6 @@ func TrackMemoryStatistics(bufferSize int, sampleIntervalMs int64, memStatsReque
 	// channel to receive profiling data - with a little bit of a buffer for when we're responding to a request
 	memStatsReceiveChannel := make(chan TimedMemStats, 20)
 
-	// log.Print("Starting memory profiling goroutines")
-
 	// start polling
 	go func() {
 		for {
@@ -110,7 +102,6 @@ func TrackMemoryStatistics(bufferSize int, sampleIntervalMs int64, memStatsReque
 				memStatsReceiveChannel <- stats
 
 			case <-quitChannel:
-				// log.Print("Stopping memory profiling goroutine (1 of 2)")
 				return
 			}
 		}
@@ -169,7 +160,6 @@ func TrackMemoryStatistics(bufferSize int, sampleIntervalMs int64, memStatsReque
 				responseChan <- response
 			case <-quitChannel:
 				// We're all done
-				// log.Print("Stopping memory profiling goroutine (2 of 2)")
 				return
 			}
 		}

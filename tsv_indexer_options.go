@@ -8,6 +8,7 @@ type Options struct {
 	DropEmptyIndexedFields bool
 	SkipMalformattedLines  bool
 	LineThreshold          int
+	Swapper                *Swapper
 }
 
 // Option is a function used in the Functional Options pattern.
@@ -61,5 +62,13 @@ func SkipMalformattedLines() Option {
 func LineThreshold(threshold int) Option {
 	return func(opts *Options) {
 		opts.LineThreshold = threshold
+	}
+}
+
+// SwapperOpts defines the memory swapper of the TSV indexer.
+// The number of seekers increase the Transfer speed during sort.
+func SwapperOpts(limit uint64, basepath string) Option {
+	return func(opts *Options) {
+		opts.Swapper = NewSwapper(limit, basepath)
 	}
 }

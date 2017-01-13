@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/labstack/gommon/bytes"
 	"github.com/mdouchement/iosupport"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -36,6 +37,10 @@ func main() {
 
 var flags = []cli.Flag{
 	cli.StringFlag{
+		Name:  "m, memory-limit",
+		Usage: "Memory limit (e.g. 8GB or 8G)",
+	},
+	cli.StringFlag{
 		Name:  "f, fields",
 		Usage: "Ordered list of columns name to be sorted (pattern: 'col5,col4')",
 	},
@@ -62,6 +67,7 @@ var flags = []cli.Flag{
 }
 
 func action(context *cli.Context) error {
+	memory := context.String("m")
 	inputPath := context.String("i")
 	header := context.Bool("H")
 	separator := context.String("s")
@@ -76,6 +82,16 @@ func action(context *cli.Context) error {
 	if user := context.String("u"); user != "" {
 		os.Setenv("HADOOP_USER_NAME", user)
 	}
+
+	var limit uint64 = 4 << 30 // ~4GB
+	if memory != "" {
+		l, err := bytes.Parse(memory)
+		if err != nil {
+			panic(err)
+		}
+		limit = uint64(l)
+	}
+	fmt.Println("Memory limit:", memory)
 
 	start := time.Now()
 
@@ -93,7 +109,8 @@ func action(context *cli.Context) error {
 		iosupport.Separator(separator),
 		iosupport.Fields(fields...),
 		iosupport.SkipMalformattedLines(),
-		iosupport.DropEmptyIndexedFields())
+		iosupport.DropEmptyIndexedFields(),
+		iosupport.SwapperOpts(limit, fmt.Sprintf("/tmp/tsv_swap_%d", time.Now().Nanosecond())))
 	defer indexer.CloseIO()
 
 	elapsed := time.Since(start)

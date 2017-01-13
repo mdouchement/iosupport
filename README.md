@@ -108,6 +108,7 @@ func check(err error) {
 ```sh
 $ go get github.com/onsi/ginkgo/ginkgo
 $ go get github.com/onsi/gomega
+$ go get github.com/golang/mock/gomock
 ```
 
 _ Run tests
@@ -131,6 +132,13 @@ $ ginkgo generate my_file.go # will create a sample test file.  edit this file a
 
 ```sh
 $ go test -run=NONE -bench=ParseFields
+```
+
+- Generate mocks
+
+```sh
+# go get github.com/golang/mock/mockgen
+$ mockgen -package=iosupport_test -source=storage_service.go -destination=storage_service_mock_test.go
 ```
 
 ## License
