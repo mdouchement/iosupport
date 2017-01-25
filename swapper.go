@@ -149,6 +149,62 @@ func (s *Swapper) chunkName(dumpKey, chunkKey int) string {
 // ReadIterator stuff //
 // ------------------ //
 
+// +----------------------+                                 A dump contains one or several sorted chunks.
+// | Dump              #1 |                                 A chunk contains severals sorted TsvLines.
+// |                      |
+// | +----------------+   |                                 lineIterator#Next() iterates over lines.
+// | | Chunk       #1 |   |  lineIterator
+// | |                +---------------------+               chunkIterators#Next() iterates over chunks.
+// | |  +---------+   |   |                 |
+// | |  | TsvLine |   |   |                 |               dumpIterator#Next() iterates over dumps
+// | |  +---------+   |   |                 |               by finding the best TsvLine
+// | |                |   |                 |               according to the CompareFunc used by sort.
+// | |  +---------+   |   |                 |
+// | |  | TsvLine |   |   |                 |
+// | |  +---------+   |   |                 |  chunkIterator
+// | |                |   |                 +-----------------------+
+// | |  +---------+   |   |                 |                       |
+// | |  | TsvLine |   |   |                 |                       |
+// | |  +---------+   |   |                 |                       |
+// | |                |   |                 |                       |
+// | +----------------+   |                 |                       |
+// |                      |                 |                       |
+// | +----------------+   |                 |                       |
+// | | Chunk       #2 |   |  lineIterator   |                       |
+// | |                +---------------------+                       |
+// | |      ...       |   |                                         |
+// | +----------------+   |                                         |
+// |                      |                                         |
+// +----------------------+                                         |  dumpIterator
+//                                                                  +---------------->  Current TsvLine
+// +----------------------+                                         |
+// | Dump              #2 |                                         |
+// |                      |                                         |
+// | +----------------+   |                                         |
+// | | Chunk       #1 |   |  lineIterator                           |
+// | |                +---------------------+                       |
+// | |  +---------+   |   |                 |                       |
+// | |  | TsvLine |   |   |                 |                       |
+// | |  +---------+   |   |                 |                       |
+// | |                |   |                 |                       |
+// | |  +---------+   |   |                 |                       |
+// | |  | TsvLine |   |   |                 |                       |
+// | |  +---------+   |   |                 |  chunkIterator        |
+// | |                |   |                 +-----------------------+
+// | |  +---------+   |   |                 |
+// | |  | TsvLine |   |   |                 |
+// | |  +---------+   |   |                 |
+// | |                |   |                 |
+// | +----------------+   |                 |
+// |                      |                 |
+// | +----------------+   |                 |
+// | | Chunk       #2 |   |  lineIterator   |
+// | |                +---------------------+
+// | |      ...       |   |
+// | +----------------+   |
+// |                      |
+// +----------------------+
+
 type (
 	// A LineIterator allows to iterate across TSV lines structure.
 	LineIterator interface {
