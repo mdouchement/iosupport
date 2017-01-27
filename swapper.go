@@ -397,7 +397,13 @@ func newLineIterator(storage StorageService, key string) *lineIterator {
 // Next returns true if an next element is found.
 func (it *lineIterator) Next() bool {
 	it.current++
-	return it.current < len(it.data)
+
+	if it.current < len(it.data) {
+		return true
+	}
+
+	tsvLinePool.Put(it.data)
+	return false
 }
 
 // Value returns the current TsvLine.

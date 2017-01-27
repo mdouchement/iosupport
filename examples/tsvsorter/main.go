@@ -85,7 +85,7 @@ func action(context *cli.Context) error {
 
 	var limit uint64 = 4 << 30 // ~4GB
 	if memory != "" {
-		l, err := bytes.Parse(memory)
+		l, err := bytes.Parse(strings.ToUpper(memory))
 		if err != nil {
 			panic(err)
 		}
