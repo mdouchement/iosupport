@@ -136,7 +136,7 @@ var _ = Describe("Scanner", func() {
 		}
 
 		It("reads the file", func() {
-			Expect(actual).To(ConsistOf(0, 1, 2))
+			Expect(actual).To(ConsistOf(1, 2, 3))
 		})
 	})
 
