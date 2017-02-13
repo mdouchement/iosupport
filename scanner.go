@@ -53,7 +53,7 @@ func NewScanner(f FileReader) *Scanner {
 		f:       f,
 		r:       bufio.NewReader(f),
 		keepnls: false,
-		line:    -1,
+		line:    0,
 	}
 }
 
