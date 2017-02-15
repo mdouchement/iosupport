@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Swapper", func() {
+var _ = Describe("swapper.go", func() {
 	Describe("NullSwapper", func() {
 		mockCtrl := gomock.NewController(GinkgoT())
 		defer mockCtrl.Finish()

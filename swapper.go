@@ -45,7 +45,7 @@ func NewSwapper(limit uint64, basepath string) *Swapper {
 		l := float64(limit)
 		return func(nbOfElements int) int {
 			noe := float64(nbOfElements)
-			return int(noe * l / K)
+			return int(noe*l/K) + 1 // Avoid 0 in case of division
 		}
 	}
 	return &Swapper{
@@ -89,9 +89,9 @@ func (s *Swapper) Swap(elements TsvLines) error {
 		return nil
 	}
 
-	chunkSize := s.ChunkSize(len(elements))
 	chunks := s.chunkList(len(elements))
 	chunksName := make([]string, 0, len(chunks))
+	chunkSize := s.ChunkSize(len(elements))
 	for i, size := range chunks {
 		offset := i * chunkSize
 
