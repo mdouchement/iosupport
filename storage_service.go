@@ -32,7 +32,7 @@ func NewHDDStorageService(basepath string) *HDDStorageService {
 			BasePath:     basepath,
 			Compression:  diskv.NewGzipCompression(),
 			Transform:    func(s string) []string { return strings.Split(s, "-") },
-			CacheSizeMax: 1024 * 1024,
+			CacheSizeMax: 0,
 		}),
 	}
 }

@@ -12,6 +12,8 @@ import (
 )
 
 func main() {
+	go ProfilerRun()
+
 	app := cli.NewApp()
 	app.Name = "TSV sorter"
 	app.Version = "0.0.1"
@@ -117,6 +119,8 @@ func action(context *cli.Context) error {
 	fmt.Printf("Initialization took %s\n\n", elapsed)
 
 	fmt.Println("Analyzing...")
+	UpdateMapping("state", "Analyzing")
+	go watchLines(indexer)
 	astart := time.Now()
 	err := indexer.Analyze()
 	if err != nil {
@@ -126,12 +130,14 @@ func action(context *cli.Context) error {
 	fmt.Printf("Analyze took %s\n\n", elapsed)
 
 	fmt.Println("Sorting...")
+	UpdateMapping("state", "Sorting")
 	sstart := time.Now()
 	indexer.Sort()
 	elapsed = time.Since(sstart)
 	fmt.Printf("Sort took %s\n\n", elapsed)
 
 	fmt.Println("Transferring...")
+	UpdateMapping("state", "Transferring")
 	ofile, err := create(outputPath)
 	if err != nil {
 		panic(err)
@@ -149,4 +155,13 @@ func action(context *cli.Context) error {
 	fmt.Printf("Total time %s\n", elapsed)
 
 	return nil
+}
+
+func watchLines(indexer *iosupport.TsvIndexer) {
+	for true {
+		UpdateMapping("cap", cap(indexer.Lines))
+		UpdateMapping("len", len(indexer.Lines))
+		UpdateMapping("dumps", indexer.Swapper.NbOfDumps())
+		time.Sleep(500 * time.Millisecond)
+	}
 }

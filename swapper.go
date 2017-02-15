@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	arrayAllocRatio float64 = 1.25                  // cf. append() mechanism.
-	chunkRatio      float64 = 0.0015894571940104167 // Given a limit equals to 600MB, ChunkSize will be 1000000 elements.
-	reservedMemory  uint64  = 200 << 20             // Reserved memory (~200MB) for internal stuff.
+	arrayAllocRatio float64 = 1.25      // cf. append() mechanism.
+	reservedMemory  uint64  = 200 << 20 // Reserved memory (~200MB) for internal stuff.
 )
 
 type (
@@ -19,7 +18,7 @@ type (
 		// Storage is the handler that stores all the dumps.
 		Storage StorageService
 		// Chunksize is the number of elements per chunk within a dump.
-		ChunkSize int
+		ChunkSize func(nbOfElements int) int
 		dumps     []*dump
 		tsvLines  TsvLines // Used when no memory dump is needed
 	}
@@ -38,11 +37,22 @@ func NewNullSwapper() *Swapper {
 
 // NewSwapper inatanciates a new Swapper with a memory limit in bytes.
 func NewSwapper(limit uint64, basepath string) *Swapper {
+	chunksize := func() func(nbOfElements int) int {
+		// K is the chunksize ratio for a given limit and number of indexed line
+		// for a wanted chunksize.
+		//   K =        limit     *   noe   / wanted chunksize
+		K := float64((1024 << 20) * 4140032 / 500000)
+		l := float64(limit)
+		return func(nbOfElements int) int {
+			noe := float64(nbOfElements)
+			return int(noe * l / K)
+		}
+	}
 	return &Swapper{
 		limit:     limit - reservedMemory,
 		Storage:   NewHDDStorageService(basepath),
 		dumps:     make([]*dump, 0, 4),
-		ChunkSize: int(float64(limit) * chunkRatio),
+		ChunkSize: chunksize(),
 	}
 }
 
@@ -67,6 +77,11 @@ func (s *Swapper) HasSwapped() bool {
 	return len(s.dumps) > 0
 }
 
+// NbOfDumps returns the number of processed dumps.
+func (s *Swapper) NbOfDumps() int {
+	return len(s.dumps)
+}
+
 // Swap dumps the given TsvLines to the configured StorageService.
 func (s *Swapper) Swap(elements TsvLines) error {
 	// NullSwapper
@@ -74,10 +89,11 @@ func (s *Swapper) Swap(elements TsvLines) error {
 		return nil
 	}
 
+	chunkSize := s.ChunkSize(len(elements))
 	chunks := s.chunkList(len(elements))
 	chunksName := make([]string, 0, len(chunks))
 	for i, size := range chunks {
-		offset := i * s.ChunkSize
+		offset := i * chunkSize
 
 		name := s.chunkName(len(s.dumps), i)
 		err := s.writeChunk(elements[offset:offset+size], name)
@@ -124,17 +140,18 @@ func (s *Swapper) writeChunk(chunk TsvLines, name string) error {
 
 // chunkList returns a slice of all chunk size for the given size.
 func (s *Swapper) chunkList(size int) []int {
-	nbChunks := size / s.ChunkSize
+	chunkSize := s.ChunkSize(size)
+	nbChunks := size / chunkSize
 	if nbChunks == 0 {
 		return []int{size}
 	}
 
 	sl := make([]int, nbChunks, nbChunks+1)
 	for i := 0; i < nbChunks; i++ {
-		sl[i] = s.ChunkSize
+		sl[i] = chunkSize
 	}
 
-	if lastChunk := size % s.ChunkSize; lastChunk != 0 {
+	if lastChunk := size % chunkSize; lastChunk != 0 {
 		sl = append(sl, lastChunk)
 	}
 
