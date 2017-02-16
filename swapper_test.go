@@ -36,13 +36,20 @@ var _ = Describe("swapper.go", func() {
 			})
 		})
 
+		Describe("#NbOfDumps", func() {
+			It("always return 0", func() {
+				Expect(subject.NbOfDumps()).To(Equal(0))
+			})
+		})
+
 		Describe("#Swap", func() {
 			It("does not swap", func() {
 				var k = "not received"
 				storage.EXPECT().Marshal(gomock.Any(), gomock.Any()).Do(func(key string, _ interface{}) {
 					k = key
 				})
-				subject.Swap(lines)
+				err := subject.Swap(lines)
+				check(err)
 
 				Expect(k).To(Equal("not received"))
 			})
@@ -75,29 +82,41 @@ var _ = Describe("swapper.go", func() {
 
 	Describe("Swapper", func() {
 		var backupGetMemoryUsage func() *HeapMemStat
+		var originalChunksizeFunc func(nbOfElements int) int
 
 		mockCtrl := gomock.NewController(GinkgoT())
 		defer mockCtrl.Finish()
 
 		var limit uint64 = 800 << 20 // ~800MB
+		var lines = TsvLines{
+			TsvLine{"0", 0, 0},
+			TsvLine{"1", 1, 1},
+			TsvLine{"2", 2, 2},
+		}
 		var basepath = tempDir("", "tsv_swapper_test")
 		var storage *MockStorageService
 		var subject *Swapper
+
 		BeforeEach(func() {
 			backupGetMemoryUsage = GetMemoryUsage
 
 			subject = NewSwapper(limit, basepath)
 			storage = NewMockStorageService(mockCtrl)
 			subject.Storage = storage
+			originalChunksizeFunc = subject.ChunkSize
+			subject.ChunkSize = func(nbOfElements int) int {
+				return len(lines) + 42 // Ensure only one chunk during tests
+			}
 		})
-		var lines = TsvLines{
-			TsvLine{"0", 0, 0},
-			TsvLine{"1", 1, 1},
-			TsvLine{"2", 2, 2},
-		}
 
 		AfterEach(func() {
 			GetMemoryUsage = backupGetMemoryUsage
+		})
+
+		Describe("default #Chunksize", func() {
+			It("calculates the chunksize", func() {
+				Expect(originalChunksizeFunc(5000000)).To(Equal(471766))
+			})
 		})
 
 		Describe("#IsTimeToSwap", func() {
@@ -145,6 +164,25 @@ var _ = Describe("swapper.go", func() {
 			})
 		})
 
+		Describe("#NbOfDumps", func() {
+			Context("when there is no dump", func() {
+				It("returns 0", func() {
+					Expect(subject.NbOfDumps()).To(Equal(0))
+				})
+			})
+
+			Context("when there is a dump", func() {
+				BeforeEach(func() {
+					storage.EXPECT().Marshal("0-0.chunk", lines).AnyTimes()
+					subject.Swap(lines)
+				})
+
+				It("returns the #dumps", func() {
+					Expect(subject.NbOfDumps()).To(Equal(1))
+				})
+			})
+		})
+
 		Describe("#Swap", func() {
 			It("swaps", func() {
 				var k string
@@ -153,7 +191,8 @@ var _ = Describe("swapper.go", func() {
 					k = key
 					v = value
 				})
-				subject.Swap(lines)
+				err := subject.Swap(lines)
+				check(err)
 
 				Expect(k).To(Equal("0-0.chunk"))
 				Expect(v).To(Equal(lines))
@@ -161,12 +200,6 @@ var _ = Describe("swapper.go", func() {
 		})
 
 		Describe("#ReadIterator", func() {
-			var lines = TsvLines{
-				TsvLine{"0", 0, 0},
-				TsvLine{"1", 1, 1},
-				TsvLine{"2", 2, 2},
-			}
-
 			BeforeEach(func() {
 				subject.KeepWithoutSwap(lines)
 			})
@@ -188,12 +221,18 @@ var _ = Describe("swapper.go", func() {
 			Context("when there is a dump", func() {
 				BeforeEach(func() {
 					storage.EXPECT().Marshal("0-0.chunk", lines).AnyTimes()
-					subject.Swap(lines) // HasSwapped now returns true
+					err := subject.Swap(lines) // HasSwapped now returns true
+					check(err)
 					storage.EXPECT().Unmarshal("0-0.chunk", gomock.Any()).Do(func(_ string, value interface{}) {
 						// Mock response
-						vv, _ := value.(*TsvLines)
-						for _, e := range lines {
-							*vv = append(*vv, e)
+						vv, _ := value.(*TsvLines) // FIXME sometimes `value' has already some elements
+						l := len(*vv)
+						for i, e := range lines {
+							if i < l {
+								(*vv)[i] = e // Overwrite existing data
+							} else {
+								*vv = append(*vv, e)
+							}
 						}
 					})
 				})
@@ -215,11 +254,12 @@ var _ = Describe("swapper.go", func() {
 
 					BeforeEach(func() {
 						storage.EXPECT().Marshal(gomock.Any(), gomock.Any()).AnyTimes()
-						subject.Swap(lines) // HasSwapped now returns true
+						err2 := subject.Swap(lines) // HasSwapped now returns true
+						check(err2)
 						storage.EXPECT().Unmarshal(gomock.Any(), gomock.Any()).AnyTimes().Return(err)
 					})
 
-					It("returns an error through the iterators", func() {
+					It("returns an error through the iterators stack", func() {
 						it := subject.ReadIterator()
 						Expect(it.Error()).To(Equal(err))
 					})
