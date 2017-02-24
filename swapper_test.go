@@ -115,7 +115,7 @@ var _ = Describe("swapper.go", func() {
 
 		Describe("default #Chunksize", func() {
 			It("calculates the chunksize", func() {
-				Expect(originalChunksizeFunc(5000000)).To(Equal(471766))
+				Expect(originalChunksizeFunc(5000000)).To(Equal(213324))
 			})
 		})
 

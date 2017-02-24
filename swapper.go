@@ -38,14 +38,23 @@ func NewNullSwapper() *Swapper {
 // NewSwapper inatanciates a new Swapper with a memory limit in bytes.
 func NewSwapper(limit uint64, basepath string) *Swapper {
 	chunksize := func() func(nbOfElements int) int {
+		// Fixed limit
+		fl := float64(1024 << 20)
+		// Given number of lines
+		gnoe := 5140032.0
+		// Wanted chunksize
+		wcs := 500000.0
 		// K is the chunksize ratio for a given limit and number of indexed line
 		// for a wanted chunksize.
-		//   K =        limit     *   noe   / wanted chunksize
-		K := float64((1024 << 20) * 4140032 / 500000)
+		K := fl * gnoe / wcs
+		// Limit (current)
 		l := float64(limit)
+		// A is the attenuation factor
+		A := (1 / (1 + fl/(l+1)))
 		return func(nbOfElements int) int {
 			noe := float64(nbOfElements)
-			return int(noe*l/K) + 1 // Avoid 0 in case of division
+			cs := noe * l / K
+			return int(cs-cs*A) + 1 // Avoid 0 in case of division
 		}
 	}
 	return &Swapper{
