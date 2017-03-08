@@ -175,7 +175,8 @@ func (tp *TsvParser) quotedField(r *reader, field bytes.Buffer) []byte {
 		// qci < si -> there is no separator occurrence until the end of the field
 		// qci+1 == si -> end of quoted field detection
 		field.Write(r.readBytesTo(si))
-		return field.Bytes()
+		v := field.Bytes()
+		return v[:len(v)-1] // Drop the ending quotechar
 	}
 
 	// Normal mode

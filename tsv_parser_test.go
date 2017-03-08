@@ -17,7 +17,7 @@ var _ = Describe("TsvParser", func() {
 		Context("with a well formatted TSV", func() {
 			var file = stringio.NewFromString(heredoc.Doc(`c1,"c,2",c3
 				val45,val2,val3
-				val40,"val42 ""the"" best",val6
+				"val40","val42 ""the"" best",val6
 				v1,,v3
 				v4,v5,
 				a,b,c`))
