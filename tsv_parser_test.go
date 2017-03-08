@@ -73,7 +73,7 @@ var _ = Describe("TsvParser", func() {
 					var subject = NewTsvParser(NewScanner(file), ',')
 					subject.ScanRow()
 
-					Expect(subject.Err().Error()).To(Equal(fmt.Sprintf("line 0, character %d: %s", input.col, ErrQuote)))
+					Expect(subject.Err().Error()).To(Equal(fmt.Sprintf("line 1, character %d: %s", input.col, ErrQuote)))
 				}
 			})
 		})
@@ -85,7 +85,7 @@ var _ = Describe("TsvParser", func() {
 
 			It("detects the error", func() {
 				subject.ScanRow()
-				Expect(subject.Err().Error()).To(Equal("line 0, character 6: " + ErrBareQuote.Error()))
+				Expect(subject.Err().Error()).To(Equal("line 1, character 6: " + ErrBareQuote.Error()))
 			})
 		})
 	})

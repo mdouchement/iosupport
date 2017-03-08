@@ -184,7 +184,7 @@ func (s *Scanner) IsLineEmpty() bool {
 // Reset seek to top of file and clean buffer.
 func (s *Scanner) Reset() {
 	s.f.Seek(0, 0)
-	s.line = -1
+	s.line = 0
 	s.limit = 0
 	s.offset = 0
 	s.token = []byte{}
@@ -224,7 +224,7 @@ func (s *Scanner) handleNewLineSequence(currentNl, nextNl byte) {
 }
 
 func (s *Scanner) recordNewlineSequence(b byte) {
-	if s.line == 0 {
+	if s.line == 1 {
 		s.newlineSequence = append(s.newlineSequence, b)
 	}
 }
