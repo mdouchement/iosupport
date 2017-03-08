@@ -226,7 +226,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, fileline int, off
 	}
 
 	ti.Lines = append(ti.Lines, TsvLine{"", offset, limit})
-	if fileline == 0 && ti.Header {
+	if fileline == 1 && ti.Header {
 		if err := ti.findFieldsIndex(row); err != nil {
 			return err
 		}
@@ -236,7 +236,7 @@ func (ti *TsvIndexer) tsvLineAppender(row [][]byte, index int, fileline int, off
 			ti.Lines[index].Comparable = ""
 		}
 		ti.nbOfFields = len(row)
-	} else if fileline == 0 {
+	} else if fileline == 1 {
 		// Without header, fields are named like the following pattern /var\d+/
 		// \d+ is used for the index of the variable
 		//
