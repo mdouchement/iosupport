@@ -20,7 +20,7 @@ var _ = Describe("TsvParser", func() {
 				"val40","val42 ""the"" best",val6
 				v1,,v3
 				v4,v5,
-				a,b,c`))
+				a,"",c`))
 
 			var sc = NewScanner(file)
 			var subject = NewTsvParser(sc, ',')
@@ -32,7 +32,7 @@ var _ = Describe("TsvParser", func() {
 				{"val40", "val42 \"the\" best", "val6"},
 				{"v1", "", "v3"},
 				{"v4", "v5", ""},
-				{"a", "b", "c"},
+				{"a", "", "c"},
 			}
 
 			for subject.ScanRow() {
