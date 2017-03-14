@@ -164,4 +164,29 @@ var _ = Describe("TsvIndexer", func() {
 			})
 		})
 	})
+
+	Describe("Integration tests", func() {
+		var limit uint64 = 4200 << 20
+		var sc = scanner("c1,c2,c3\n1,0,42\n10,0,42\n,,42\na,b,c\ng,h,i\nd,e,f\n")
+		var subject = NewTsvIndexer(sc, HasHeader(), Separator(","), Fields("c1", "c2"), SwapperOpts(limit, tempDir("", "tsv_swap_itg")))
+		var output = stringio.New()
+
+		backupGetMemoryUsage := GetMemoryUsage
+		GetMemoryUsage = func() *HeapMemStat {
+			return &HeapMemStat{0, limit + 42, 0, 0, 0, 0}
+		}
+		defer func() { GetMemoryUsage = backupGetMemoryUsage }()
+
+		subject.Lines = make(TsvLines, 0, 2) // 2 lines per dump
+
+		err := subject.Analyze()
+		check(err)
+		subject.Sort()
+		err = subject.Transfer(output)
+		check(err)
+
+		It("succeeds", func() {
+			Expect(output.GetValueString()).To(Equal("c1,c2,c3\n,,42\n1,0,42\n10,0,42\na,b,c\nd,e,f\ng,h,i\n"))
+		})
+	})
 })

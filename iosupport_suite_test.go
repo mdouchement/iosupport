@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 
 	"github.com/mdouchement/iosupport"
@@ -23,8 +25,26 @@ func TestIosupport(t *testing.T) {
 
 func check(err error) {
 	if err != nil {
+		fmt.Println(err)
 		Fail(err.Error())
 	}
+}
+
+func tempDir(dir, prefix string) string {
+	name, err := ioutil.TempDir(dir, prefix)
+	check(err)
+	return name
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true // ignoring error
 }
 
 func toStringSlice(values [][]byte) []string {

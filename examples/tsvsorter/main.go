@@ -6,11 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/labstack/gommon/bytes"
 	"github.com/mdouchement/iosupport"
 	"gopkg.in/urfave/cli.v1"
 )
 
 func main() {
+	go ProfilerRun()
+
 	app := cli.NewApp()
 	app.Name = "TSV sorter"
 	app.Version = "0.0.1"
@@ -35,6 +38,10 @@ func main() {
 }
 
 var flags = []cli.Flag{
+	cli.StringFlag{
+		Name:  "m, memory-limit",
+		Usage: "Memory limit (e.g. 8GB or 8G)",
+	},
 	cli.StringFlag{
 		Name:  "f, fields",
 		Usage: "Ordered list of columns name to be sorted (pattern: 'col5,col4')",
@@ -62,6 +69,7 @@ var flags = []cli.Flag{
 }
 
 func action(context *cli.Context) error {
+	memory := context.String("m")
 	inputPath := context.String("i")
 	header := context.Bool("H")
 	separator := context.String("s")
@@ -76,6 +84,16 @@ func action(context *cli.Context) error {
 	if user := context.String("u"); user != "" {
 		os.Setenv("HADOOP_USER_NAME", user)
 	}
+
+	var limit uint64 = 4 << 30 // ~4GB
+	if memory != "" {
+		l, err := bytes.Parse(strings.ToUpper(memory))
+		if err != nil {
+			panic(err)
+		}
+		limit = uint64(l)
+	}
+	fmt.Println("Memory limit:", memory)
 
 	start := time.Now()
 
@@ -93,13 +111,16 @@ func action(context *cli.Context) error {
 		iosupport.Separator(separator),
 		iosupport.Fields(fields...),
 		iosupport.SkipMalformattedLines(),
-		iosupport.DropEmptyIndexedFields())
+		iosupport.DropEmptyIndexedFields(),
+		iosupport.SwapperOpts(limit, fmt.Sprintf("/tmp/tsv_swap_%d", time.Now().Nanosecond())))
 	defer indexer.CloseIO()
 
 	elapsed := time.Since(start)
 	fmt.Printf("Initialization took %s\n\n", elapsed)
 
 	fmt.Println("Analyzing...")
+	UpdateMapping("state", "Analyzing")
+	go watchLines(indexer)
 	astart := time.Now()
 	err := indexer.Analyze()
 	if err != nil {
@@ -109,12 +130,14 @@ func action(context *cli.Context) error {
 	fmt.Printf("Analyze took %s\n\n", elapsed)
 
 	fmt.Println("Sorting...")
+	UpdateMapping("state", "Sorting")
 	sstart := time.Now()
 	indexer.Sort()
 	elapsed = time.Since(sstart)
 	fmt.Printf("Sort took %s\n\n", elapsed)
 
 	fmt.Println("Transferring...")
+	UpdateMapping("state", "Transferring")
 	ofile, err := create(outputPath)
 	if err != nil {
 		panic(err)
@@ -132,4 +155,13 @@ func action(context *cli.Context) error {
 	fmt.Printf("Total time %s\n", elapsed)
 
 	return nil
+}
+
+func watchLines(indexer *iosupport.TsvIndexer) {
+	for true {
+		UpdateMapping("cap", cap(indexer.Lines))
+		UpdateMapping("len", len(indexer.Lines))
+		UpdateMapping("dumps", indexer.Swapper.NbOfDumps())
+		time.Sleep(500 * time.Millisecond)
+	}
 }
