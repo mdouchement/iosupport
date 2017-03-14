@@ -29,7 +29,7 @@ type HDDStorageService struct {
 	pool *bpool.BufferPool
 }
 
-// NewHDDStorageService inatanciates a new StorageService.
+// NewHDDStorageService instanciates a new HDDStorageService.
 func NewHDDStorageService(basepath string) *HDDStorageService {
 	return &HDDStorageService{
 		pool: bpool.NewBufferPool(4),
@@ -90,7 +90,7 @@ func (s *HDDStorageService) EraseAll() error {
 // MemStorageService  //
 // ------------------ //
 
-// A StorageService allows to reads and writes blobs on filesystem.
+// A MemStorageService allows to reads and writes blobs in memory.
 type MemStorageService struct {
 	sync.RWMutex
 	compression diskv.Compression
@@ -98,7 +98,7 @@ type MemStorageService struct {
 	pool        *bpool.BufferPool
 }
 
-// NewStorageService inatanciates a new StorageService.
+// NewMemStorageService instanciates a new MemStorageService.
 func NewMemStorageService() *MemStorageService {
 	return &MemStorageService{
 		pool:        bpool.NewBufferPool(4),
