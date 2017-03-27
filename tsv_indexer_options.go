@@ -9,6 +9,7 @@ type Options struct {
 	SkipMalformattedLines  bool
 	LineThreshold          int
 	Swapper                *Swapper
+	LazyQuotes             bool
 }
 
 // Option is a function used in the Functional Options pattern.
@@ -70,5 +71,12 @@ func LineThreshold(threshold int) Option {
 func SwapperOpts(limit uint64, basepath string) Option {
 	return func(opts *Options) {
 		opts.Swapper = NewSwapper(limit, basepath)
+	}
+}
+
+// LazyQuotesMode allows lazy quotes in CSV.
+func LazyQuotesMode() Option {
+	return func(opts *Options) {
+		opts.LazyQuotes = true
 	}
 }
