@@ -56,8 +56,10 @@ func NewTsvIndexer(scannerFunc func() *Scanner, setters ...Option) *TsvIndexer {
 		setter(options)
 	}
 
+	parser := NewTsvParser(sc, options.Separator)
+	parser.LazyQuotes = options.LazyQuotes
 	return &TsvIndexer{
-		parser:          NewTsvParser(sc, options.Separator),
+		parser:          parser,
 		Options:         options,
 		FieldsIndex:     make(map[string]int),
 		scannerFunc:     scannerFunc,

@@ -110,6 +110,7 @@ func action(context *cli.Context) error {
 		iosupport.Header(header),
 		iosupport.Separator(separator),
 		iosupport.Fields(fields...),
+		iosupport.LazyQuotesMode(),
 		iosupport.SkipMalformattedLines(),
 		iosupport.DropEmptyIndexedFields(),
 		iosupport.SwapperOpts(limit, fmt.Sprintf("/tmp/tsv_swap_%d", time.Now().Nanosecond())))
