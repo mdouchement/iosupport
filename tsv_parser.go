@@ -171,7 +171,7 @@ func (tp *TsvParser) quotedField(r *reader, field bytes.Buffer) []byte {
 	// Enabled when the field is basic (e.g `...,"col 1",...')
 	si := r.indexOf(tp.Separator)
 	qci := r.indexOf(tp.QuoteChar)
-	if qci < si && qci+1 == si {
+	if qci >= 0 && qci < si && qci+1 == si {
 		// qci < si -> there is no separator occurrence until the end of the field
 		// qci+1 == si -> end of quoted field detection
 		field.Write(r.readBytesTo(si))
@@ -221,7 +221,7 @@ func (tp *TsvParser) unquotedField(r *reader, field bytes.Buffer, b byte) []byte
 	// Enabled when the field does not contain a double-quote (e.g `..,col1,..')
 	si := r.indexOf(tp.Separator)
 	qci := r.indexOf(tp.QuoteChar)
-	if qci == -1 || si < qci {
+	if qci >= 0 && qci == -1 || si < qci {
 		// qci == -1 -> no longer quote char in last part of the row
 		// si < qsi -> there is no quote char until the next separator
 		field.WriteByte(b)
